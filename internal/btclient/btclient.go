@@ -3,8 +3,10 @@ package btclient
 import (
 	"example.com/btclient/pkg/bencodeutil"
 	"example.com/btclient/pkg/closelogger"
-	"fmt"
+	"example.com/btclient/pkg/trackerprotocol"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 func Run() error {
@@ -26,8 +28,25 @@ func Run() error {
 	if err != nil {
 		return err
 	}
+	torrent, err := bencodedData.Simplify()
+	if err != nil {
+		return err
+	}
 
-	fmt.Printf("%+v\n", bencodedData)
+	// Handle
+	handler, err := trackerprotocol.NewHandler(torrent)
+	if err != nil {
+		return err
+	}
+	if err := handler.Handle(); err != nil {
+		return err
+	}
+	defer handler.Close()
+
+	// Wait until SIGINT is given
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	<-signals
 
 	return nil
 }
