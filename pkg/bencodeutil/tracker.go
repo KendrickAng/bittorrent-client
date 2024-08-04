@@ -13,9 +13,14 @@ const (
 )
 
 type TrackerResponse struct {
-	FailureReason   string
+	// Human-readable error message as to why the request failed.
+	FailureReason string
+
+	// Interval in seconds that the client should wait between sending regular re-requests to the tracker.
 	RefreshInterval int
-	Peers           []Peer
+
+	// List of (IP, Port), each representing a peer.
+	Peers []Peer
 }
 
 type Peer struct {
@@ -29,9 +34,14 @@ func (p *Peer) String() string {
 
 // Bencoded response received when connecting to a tracker.
 type rawTrackerResponse struct {
+	// Human-readable error message as to why the request failed.
 	FailureReason string `bencode:"failure reason,omitempty"`
-	Interval      int    `bencode:"interval"`
-	Peers         string `bencode:"peers"`
+
+	// Interval in seconds that the client should wait between sending regular re-requests to the tracker.
+	Interval int `bencode:"interval"`
+
+	// List of (IP, Port), each representing a peer.
+	Peers string `bencode:"peers"`
 }
 
 func UnmarshalTrackerResponse(b []byte) (*TrackerResponse, error) {

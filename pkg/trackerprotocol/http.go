@@ -11,15 +11,12 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
+	"sync"
 )
 
 const (
 	startPort = 6881
 	endPort   = 6889
-
-	peerDialTimeout        = 10 * time.Second
-	btProtocolID    string = "BitTorrent protocol"
 )
 
 func (h *Handler) handleHttp() error {
@@ -62,42 +59,30 @@ func (h *Handler) handleHttp() error {
 	if len(trackerResp.Peers) == 0 {
 		return errors.New("no peers found")
 	}
-	fmt.Printf("Received tracker response: %+v\n", trackerResp)
 
-	// TODO handle tracker refresh interval
+	// TODO some download manager for pieces
 
-	// TODO peer concurrency
-
+	// Connect to available peers
+	var wg sync.WaitGroup
 	for _, peer := range trackerResp.Peers {
+		wg.Add(1)
+
+		// TODO thread pool to limit resource usage
 		go func() {
-			// Dial peer
-			fmt.Println("Connecting to peer " + peer.String())
+			defer wg.Done()
 
-			conn, err := net.DialTimeout("tcp", peer.String(), peerDialTimeout)
+			client, err := NewClient(peer, peerID, h.torrent.InfoHash)
 			if err != nil {
-				return
+				fmt.Printf("Error creating client for peer %s: %s\n", peer.String(), err)
 			}
-			defer conn.Close()
+			defer closelogger.CloseOrLog(client, peer.String())
 
-			fmt.Printf("Establish TCP client to peer: %+v\n", peer)
-
-			// Initiate handshake with peer
-			handshake := buildHandshake(btProtocolID, peerID, h.torrent.InfoHash)
-			_, err = conn.Write(handshake)
-			if err != nil {
-				return
+			if err := client.Start(); err != nil {
+				fmt.Printf("Error starting client for peer %s: %s\n", peer.String(), err)
 			}
-
-			// Receive message from peer
-			buf := make([]byte, 1024)
-			_, err = conn.Read(buf)
-			if err != nil {
-				return
-			}
-			fmt.Println("RECEIVED: " + string(buf))
 		}()
 	}
-	//peer := trackerResp.Peers[0]
+	wg.Wait()
 
 	return nil
 }
@@ -129,23 +114,6 @@ func (h *Handler) buildTrackerURL(peerID [20]byte, port int) (string, error) {
 	}
 	base.RawQuery = params.Encode()
 	return base.String(), nil
-}
-
-type Handshake struct {
-	protocolID       string
-	bencodedInfoHash [20]byte
-	peerID           [20]byte
-}
-
-func buildHandshake(protocolID string, peerID [20]byte, bencodedInfoHash [20]byte) []byte {
-	buf := make([]byte, len(protocolID)+49)
-	buf[0] = byte(len(protocolID))
-	ptr := 1 // first byte taken by '19'
-	ptr += copy(buf[ptr:], protocolID)
-	ptr += copy(buf[ptr:], make([]byte, 8))
-	ptr += copy(buf[ptr:], bencodedInfoHash[:])
-	ptr += copy(buf[ptr:], peerID[:])
-	return buf
 }
 
 func random20Bytes() ([20]byte, error) {
