@@ -2,8 +2,8 @@ package bencodeutil
 
 import (
 	"bytes"
-	"crypto/sha1"
 	"errors"
+	"example.com/btclient/pkg/hashutil"
 	"example.com/btclient/pkg/stringutil"
 	"fmt"
 	"github.com/jackpal/bencode-go"
@@ -94,10 +94,13 @@ func Unmarshal(r io.Reader) (TorrentFile, error) {
 type SimpleTorrentFile struct {
 	Announce string
 	// SHA-1 hash of the entire bencoded info dict.
-	InfoHash    [20]byte
+	InfoHash [20]byte
+	// Hash of each piece.
 	PieceHashes [][20]byte
+	// Number of bytes in each piece.
 	PieceLength int
-	Length      int
+	// Length of the file in bytes.
+	Length int
 	// May be empty in multi-file mode.
 	Name string
 }
@@ -108,7 +111,7 @@ func (t *TorrentFile) Simplify() (SimpleTorrentFile, error) {
 	if err := bencode.Marshal(buf, t.Info); err != nil {
 		return SimpleTorrentFile{}, err
 	}
-	bufHash := sha1.Sum(buf.Bytes())
+	bufHash := hashutil.BTHash(buf.Bytes())
 
 	// Split pieces into pieces of 20 bytes each
 	sha1Chunks, err := stringutil.SplitChunksOf20(t.Info.Pieces)

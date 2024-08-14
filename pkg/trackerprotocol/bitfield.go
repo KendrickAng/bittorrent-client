@@ -1,5 +1,6 @@
 package trackerprotocol
 
+// Bitfield represents the pieces that a peer has available for download.
 type Bitfield []byte
 
 func (b Bitfield) HasBit(bitIdx int) bool {

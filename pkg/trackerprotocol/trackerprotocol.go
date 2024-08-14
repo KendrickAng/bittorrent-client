@@ -1,6 +1,7 @@
 package trackerprotocol
 
 import (
+	"context"
 	"errors"
 	"example.com/btclient/pkg/bencodeutil"
 	"example.com/btclient/pkg/preconditions"
@@ -35,7 +36,7 @@ func NewHandler(torrent bencodeutil.SimpleTorrentFile) (*Handler, error) {
 	return &Handler{announceUrl: announceUrl, torrent: &torrent}, nil
 }
 
-func (h *Handler) Handle() error {
+func (h *Handler) Handle(ctx context.Context) error {
 	switch scheme := h.announceUrl.Scheme; scheme {
 
 	case "udp":
@@ -56,7 +57,7 @@ func (h *Handler) Handle() error {
 		return errors.New("udp scheme is not fully supported yet")
 
 	case "http":
-		return h.handleHttp()
+		return h.handleHttp(ctx)
 
 	default:
 		return fmt.Errorf("unsupported scheme: %s", scheme)

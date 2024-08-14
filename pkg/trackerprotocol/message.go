@@ -7,9 +7,9 @@ import (
 )
 
 // All non-keepalive messages start with a single byte.
-type messageID uint8
+type MessageID uint8
 
-func (m messageID) String() string {
+func (m MessageID) String() string {
 	switch m {
 	case MsgChoke:
 		return "choke"
@@ -34,22 +34,75 @@ func (m messageID) String() string {
 }
 
 const (
-	MsgChoke         messageID = 0 // no payload
-	MsgUnchoke       messageID = 1 // no payload
-	MsgInterested    messageID = 2 // no payload
-	MsgNotInterested messageID = 3 // no payload
-	MsgHave          messageID = 4
-	MsgBitfield      messageID = 5
-	MsgRequest       messageID = 6
-	MsgPiece         messageID = 7
-	MsgCancel        messageID = 8
-	MsgKeepAlive     messageID = 100 // arbitrary
+	MsgChoke         MessageID = 0 // no payload
+	MsgUnchoke       MessageID = 1 // no payload
+	MsgInterested    MessageID = 2 // no payload
+	MsgNotInterested MessageID = 3 // no payload
+	MsgHave          MessageID = 4
+	MsgBitfield      MessageID = 5
+	MsgRequest       MessageID = 6
+	MsgPiece         MessageID = 7
+	MsgCancel        MessageID = 8
+	MsgKeepAlive     MessageID = 100 // arbitrary
+
+	MaxRequestLength = 16384 // 2 ^ 14 (16kiB)
 )
 
 // Message contains the ID and payload of a message
 type Message struct {
-	ID      messageID
+	ID      MessageID
 	Payload []byte
+	// Total length of the message in bytes.
+	Length uint32
+}
+
+type MessageUnchoke struct{}
+
+type MessageInterested struct{}
+
+func (m MessageInterested) Encode() []byte {
+	msg := make([]byte, 5) // len + message id
+	binary.BigEndian.PutUint32(msg, 5)
+	msg[4] = uint8(MsgInterested)
+	return msg
+}
+
+type MessageBitfield struct {
+	Bitfield Bitfield
+}
+
+type MessageRequest struct {
+	// The zero-based piece index.
+	Index uint32
+
+	// The zero-based byte offset within the piece.
+	Begin uint32
+
+	// The requested length of the piece.
+	// Length is generally a power of two unless it gets truncated by the end of the file.
+	// Current implementations use 2^14 (16kiB), except close connections, which use more.
+	Length uint32
+}
+
+func (m MessageRequest) Encode() []byte {
+	msg := make([]byte, 17) // len + message id + index + begin + length
+	binary.BigEndian.PutUint32(msg[:4], 17)
+	msg[5] = uint8(MsgRequest)
+	binary.BigEndian.PutUint32(msg[5:9], m.Index)
+	binary.BigEndian.PutUint32(msg[9:13], m.Begin)
+	binary.BigEndian.PutUint32(msg[13:17], m.Length)
+	return msg
+}
+
+type MessagePiece struct {
+	// The zero-based piece index.
+	Index uint32
+
+	// The zero-based byte offset within the piece.
+	Begin uint32
+
+	// The piece itself.
+	Block []byte
 }
 
 func (m *Message) Serialize() []byte {
@@ -89,7 +142,7 @@ func Deserialize(r io.Reader) (*Message, error) {
 
 	// KeepAlive messages have a length of zero
 	if length == 0 {
-		return mKeepAlive(), nil
+		return buildKeepAliveMessage(), nil
 	}
 
 	// Non-keepalive messages start with a single byte (msg type)
@@ -100,12 +153,13 @@ func Deserialize(r io.Reader) (*Message, error) {
 	}
 
 	return &Message{
-		ID:      messageID(messageBuf[0]),
+		ID:      MessageID(messageBuf[0]),
+		Length:  length,
 		Payload: messageBuf[1:],
 	}, nil
 }
 
-func mKeepAlive() *Message {
+func buildKeepAliveMessage() *Message {
 	return &Message{
 		ID:      MsgKeepAlive,
 		Payload: nil,

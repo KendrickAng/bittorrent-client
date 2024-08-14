@@ -1,6 +1,7 @@
 package btclient
 
 import (
+	"context"
 	"example.com/btclient/pkg/bencodeutil"
 	"example.com/btclient/pkg/closelogger"
 	"example.com/btclient/pkg/trackerprotocol"
@@ -9,7 +10,7 @@ import (
 	"syscall"
 )
 
-func Run() error {
+func Run(ctx context.Context) error {
 	// Parse flags
 	flags, err := GetFlags()
 	if err != nil {
@@ -38,7 +39,7 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	if err := handler.Handle(); err != nil {
+	if err := handler.Handle(ctx); err != nil {
 		return err
 	}
 	defer handler.Close()

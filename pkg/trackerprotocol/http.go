@@ -1,6 +1,7 @@
 package trackerprotocol
 
 import (
+	"context"
 	"errors"
 	"example.com/btclient/pkg/bencodeutil"
 	"example.com/btclient/pkg/closelogger"
@@ -11,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"sync"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 	endPort   = 6889
 )
 
-func (h *Handler) handleHttp() error {
+func (h *Handler) handleHttp(ctx context.Context) error {
 	// Reserve port for this application
 	port, err := h.reservePort()
 	if err != nil {
@@ -60,29 +60,27 @@ func (h *Handler) handleHttp() error {
 		return errors.New("no peers found")
 	}
 
-	// TODO some download manager for pieces
-
 	// Connect to available peers
-	var wg sync.WaitGroup
+	var clients []*Client
 	for _, peer := range trackerResp.Peers {
-		wg.Add(1)
+		client, err := NewClient(peer, peerID, h.torrent.InfoHash)
+		if err != nil {
+			fmt.Printf("Error creating client for peer %s: %s\n", peer.String(), err)
+			return err
+		}
+		clients = append(clients, client)
 
-		// TODO thread pool to limit resource usage
-		go func() {
-			defer wg.Done()
-
-			client, err := NewClient(peer, peerID, h.torrent.InfoHash)
-			if err != nil {
-				fmt.Printf("Error creating client for peer %s: %s\n", peer.String(), err)
-			}
-			defer closelogger.CloseOrLog(client, peer.String())
-
-			if err := client.Start(); err != nil {
-				fmt.Printf("Error starting client for peer %s: %s\n", peer.String(), err)
-			}
-		}()
+		fmt.Printf("Created client for %s\n", peer.String())
 	}
-	wg.Wait()
+
+	// Start download manager
+	manager, err := NewDownloadManager(h.torrent, clients)
+	if err != nil {
+		return err
+	}
+	if err := manager.Start(ctx); err != nil {
+		return err
+	}
 
 	return nil
 }

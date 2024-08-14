@@ -1,7 +1,8 @@
 package trackerprotocol
 
 import (
-	"errors"
+	"fmt"
+	"io"
 	"net"
 )
 
@@ -34,9 +35,43 @@ func (h *Handshaker) SendHandshake(peerID [20]byte, infoHash [20]byte) error {
 	return nil
 }
 
-func (h *Handshaker) ReceiveHandshake() (Handshake, error) {
-	// TODO receive handshake
-	return Handshake{}, errors.New("Not supported")
+func (h *Handshaker) ReceiveHandshake() (*Handshake, error) {
+	// Read length of protocol ID
+	lengthBuffer := make([]byte, 1)
+	_, err := io.ReadFull(h.peerConn, lengthBuffer)
+	if err != nil {
+		return nil, err
+	}
+
+	// Read protocol ID
+	protocolIDBuffer := make([]byte, int(lengthBuffer[0]))
+	_, err = io.ReadFull(h.peerConn, protocolIDBuffer)
+	if err != nil {
+		return nil, err
+	}
+	if string(protocolIDBuffer) != btProtocolID {
+		return nil, fmt.Errorf("expected peer protocol ID '%s', got '%s'", btProtocolID, string(protocolIDBuffer))
+	}
+
+	// Read extension bits, info hash, peer ID
+	buf := make([]byte, 8+20+20)
+	_, err = io.ReadFull(h.peerConn, buf)
+	if err != nil {
+		return nil, err
+	}
+
+	var extensionBits [20]byte
+	var infoHash [20]byte
+	var peerID [20]byte
+	copy(extensionBits[:], buf[:8])
+	copy(infoHash[:], buf[8:28])
+	copy(peerID[:], buf[28:48])
+
+	return &Handshake{
+		ProtocolID: string(protocolIDBuffer),
+		PeerID:     peerID,
+		InfoHash:   infoHash,
+	}, nil
 }
 
 func buildHandshake(protocolID string, peerID [20]byte, bencodedInfoHash [20]byte) []byte {
