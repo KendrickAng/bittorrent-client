@@ -56,6 +56,10 @@ func NewClient(peer bencodeutil.Peer, peerID [20]byte, infoHash [20]byte) (*Clie
 	}, nil
 }
 
+func (c *Client) IsChoked() bool {
+	return c.isChoked
+}
+
 func (c *Client) ReceiveUnchokeMessage() (*MessageUnchoke, error) {
 	_, err := receiveMessageOfType(c.conn, MsgUnchoke)
 	return &MessageUnchoke{}, err
@@ -66,6 +70,10 @@ func (c *Client) SendInterestedMessage() error {
 	return err
 }
 
+// SendRequestMessage sends a request to peer to download a section of a piece of data.
+// pieceIndex: integer specifying the zero-based piece pieceIndex
+// begin: integer specifying the zero-based byte offset within the piece
+// requestLength: integer specifying the requested requestLength.
 func (c *Client) SendRequestMessage(index, begin, length uint32) error {
 	_, err := c.conn.Write(MessageRequest{
 		Index:  index,
@@ -91,7 +99,7 @@ func (c *Client) ReceivePieceMessage() (*MessagePiece, error) {
 		return nil, err
 	}
 
-	blockLength := msg.Length - 9 // message id + index + begin = 9
+	blockLength := msg.Length - 9 // message id + pieceIndex + begin = 9
 	block, err := c.readBytes(int(blockLength))
 	if err != nil {
 		return nil, err

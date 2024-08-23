@@ -52,7 +52,7 @@ const (
 type Message struct {
 	ID      MessageID
 	Payload []byte
-	// Total length of the message in bytes.
+	// Total requestLength of the message in bytes.
 	Length uint32
 }
 
@@ -72,20 +72,20 @@ type MessageBitfield struct {
 }
 
 type MessageRequest struct {
-	// The zero-based piece index.
+	// The zero-based piece pieceIndex.
 	Index uint32
 
 	// The zero-based byte offset within the piece.
 	Begin uint32
 
-	// The requested length of the piece.
+	// The requested requestLength of the piece.
 	// Length is generally a power of two unless it gets truncated by the end of the file.
 	// Current implementations use 2^14 (16kiB), except close connections, which use more.
 	Length uint32
 }
 
 func (m MessageRequest) Encode() []byte {
-	msg := make([]byte, 17) // len + message id + index + begin + length
+	msg := make([]byte, 17) // len + message id + pieceIndex + begin + requestLength
 	binary.BigEndian.PutUint32(msg[:4], 17)
 	msg[5] = uint8(MsgRequest)
 	binary.BigEndian.PutUint32(msg[5:9], m.Index)
@@ -95,7 +95,7 @@ func (m MessageRequest) Encode() []byte {
 }
 
 type MessagePiece struct {
-	// The zero-based piece index.
+	// The zero-based piece pieceIndex.
 	Index uint32
 
 	// The zero-based byte offset within the piece.
@@ -110,10 +110,10 @@ func (m *Message) Serialize() []byte {
 		return make([]byte, 0)
 	}
 
-	numBytes := 4 + 1 + len(m.Payload) // length + type + payload
+	numBytes := 4 + 1 + len(m.Payload) // requestLength + type + payload
 	buffer := make([]byte, numBytes)
 
-	// Total length of message = payload + id
+	// Total requestLength of message = payload + id
 	binary.BigEndian.PutUint32(buffer[:4], uint32(len(m.Payload)+1))
 
 	// Message type
@@ -130,17 +130,17 @@ func (m *Message) String() string {
 }
 
 func Deserialize(r io.Reader) (*Message, error) {
-	// Read length of message
+	// Read requestLength of message
 	lengthBuffer := make([]byte, 4)
 	_, err := io.ReadFull(r, lengthBuffer)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get length of message
+	// Get requestLength of message
 	length := binary.BigEndian.Uint32(lengthBuffer[:])
 
-	// KeepAlive messages have a length of zero
+	// KeepAlive messages have a requestLength of zero
 	if length == 0 {
 		return buildKeepAliveMessage(), nil
 	}

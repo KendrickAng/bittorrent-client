@@ -22,7 +22,7 @@ func (r *Reconstructer) Reconstruct(piece []byte, pieceIdx int) (bool, error) {
 	actualPieceHash := hashutil.BTHash(piece)
 	expectedPieceHash := r.pieceHashes[pieceIdx]
 	if actualPieceHash != expectedPieceHash {
-		return false, fmt.Errorf("invalid piece hash for index %d", pieceIdx)
+		return false, fmt.Errorf("invalid piece hash for pieceIndex %d", pieceIdx)
 	}
 	return true, nil
 }

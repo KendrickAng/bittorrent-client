@@ -25,8 +25,12 @@ type DownloadManager struct {
 }
 
 type pieceRequest struct {
-	index             int
-	length            int
+	// Index identifying the piece to download.
+	pieceIndex int
+	// Size of a piece, in bytes.
+	pieceLength int
+	// Bytes to download in a single request message, in bytes.
+	requestLength     int
 	expectedPieceHash [20]byte
 }
 
@@ -78,7 +82,7 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 		case pieceResult := <-d.pieceResultChannel:
 			isDone, err := d.reconstructer.Reconstruct(pieceResult.piece, pieceResult.index)
 			if err != nil {
-				fmt.Printf("error reconstructing piece with index %d", pieceResult.index)
+				fmt.Printf("error reconstructing piece with pieceIndex %d", pieceResult.index)
 			}
 			if isDone {
 				close(d.done)
@@ -92,8 +96,9 @@ func createDownloadTasks(torrent *bencodeutil.SimpleTorrentFile) []pieceRequest 
 
 	for i, pieceHash := range torrent.PieceHashes {
 		downloadTasks = append(downloadTasks, pieceRequest{
-			index:             i,
-			length:            maxRequestLength,
+			pieceIndex:        i,
+			requestLength:     maxRequestLength,
+			pieceLength:       torrent.PieceLength,
 			expectedPieceHash: pieceHash,
 		})
 	}

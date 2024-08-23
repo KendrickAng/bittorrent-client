@@ -36,7 +36,7 @@ func (h *Handshaker) SendHandshake(peerID [20]byte, infoHash [20]byte) error {
 }
 
 func (h *Handshaker) ReceiveHandshake() (*Handshake, error) {
-	// Read length of protocol ID
+	// Read requestLength of protocol ID
 	lengthBuffer := make([]byte, 1)
 	_, err := io.ReadFull(h.peerConn, lengthBuffer)
 	if err != nil {
