@@ -9,16 +9,14 @@ import (
 const (
 	// Pipelining is encouraged by downloaders to maximise download efficiency.
 	maxDownloadThreads uint = 200
-
-	maxRequestLength = 16384 // 2 ^ 14 (16kiB)
+	maxResultThreads   uint = 1000
+	maxRequestLength        = 16384 // 2 ^ 14 (16kiB)
 )
 
 type DownloadManager struct {
 	torrent       *bencodeutil.SimpleTorrentFile
 	clients       []*Client
 	reconstructer *Reconstructer
-	// Channel for sending in pieces of the torrent to download.
-	pieceDownloadChannel chan *pieceRequest
 	// Channel for receiving pieces of the downloaded torrent.
 	pieceResultChannel chan *pieceResult
 	done               chan struct{}
@@ -42,12 +40,10 @@ type pieceResult struct {
 
 func NewDownloadManager(torrent *bencodeutil.SimpleTorrentFile, clients []*Client) (*DownloadManager, error) {
 	return &DownloadManager{
-		torrent:              torrent,
-		clients:              clients,
-		reconstructer:        NewReconstructer(torrent.PieceHashes),
-		pieceDownloadChannel: make(chan *pieceRequest, maxDownloadThreads),
-		// no upper limit on processing download results
-		pieceResultChannel: make(chan *pieceResult),
+		torrent:            torrent,
+		clients:            clients,
+		reconstructer:      NewReconstructer(torrent.PieceHashes),
+		pieceResultChannel: make(chan *pieceResult, maxResultThreads),
 		done:               make(chan struct{}),
 	}, nil
 }
@@ -55,21 +51,20 @@ func NewDownloadManager(torrent *bencodeutil.SimpleTorrentFile, clients []*Clien
 func (d *DownloadManager) Start(ctx context.Context) error {
 	// split pieces into pieces of work
 	downloadTasks := createDownloadTasks(d.torrent)
+	pieceDownloadChannel := make(chan *pieceRequest, len(downloadTasks))
 	for _, task := range downloadTasks {
-		d.pieceDownloadChannel <- &task
+		pieceDownloadChannel <- &task
 	}
+	defer close(pieceDownloadChannel)
 
 	// handle with clients
 	for _, peer := range d.clients {
-		peer := peer
-		requests := d.pieceDownloadChannel
-		results := d.pieceResultChannel
-		go func() {
+		go func(peer *Client, requests chan *pieceRequest, results chan *pieceResult) {
 			worker := NewDownloadWorker(peer, requests, results)
 			if err := worker.Start(ctx); err != nil {
-				fmt.Printf("worker %s encountered error %s", peer.String(), err.Error())
+				println("worker ", peer.String(), " error ", err.Error())
 			}
-		}()
+		}(peer, pieceDownloadChannel, d.pieceResultChannel)
 	}
 
 	// continue until user cancels or download completes

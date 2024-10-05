@@ -58,13 +58,14 @@ type Message struct {
 
 type MessageUnchoke struct{}
 
+func (m MessageUnchoke) Encode() []byte {
+	return createMessageWithPayload(MsgUnchoke, []byte{})
+}
+
 type MessageInterested struct{}
 
 func (m MessageInterested) Encode() []byte {
-	msg := make([]byte, 5) // len + message id
-	binary.BigEndian.PutUint32(msg, 5)
-	msg[4] = uint8(MsgInterested)
-	return msg
+	return createMessageWithPayload(MsgInterested, []byte{})
 }
 
 type MessageBitfield struct {
@@ -85,13 +86,11 @@ type MessageRequest struct {
 }
 
 func (m MessageRequest) Encode() []byte {
-	msg := make([]byte, 17) // len + message id + pieceIndex + begin + requestLength
-	binary.BigEndian.PutUint32(msg[:4], 17)
-	msg[5] = uint8(MsgRequest)
-	binary.BigEndian.PutUint32(msg[5:9], m.Index)
-	binary.BigEndian.PutUint32(msg[9:13], m.Begin)
-	binary.BigEndian.PutUint32(msg[13:17], m.Length)
-	return msg
+	msg := make([]byte, 12)
+	binary.BigEndian.PutUint32(msg[0:4], m.Index)
+	binary.BigEndian.PutUint32(msg[4:8], m.Begin)
+	binary.BigEndian.PutUint32(msg[8:12], m.Length)
+	return createMessageWithPayload(MsgRequest, msg)
 }
 
 type MessagePiece struct {
@@ -104,6 +103,8 @@ type MessagePiece struct {
 	// The piece itself.
 	Block []byte
 }
+
+type MessageKeepAlive struct{}
 
 func (m *Message) Serialize() []byte {
 	if m.ID == MsgKeepAlive {
@@ -164,4 +165,13 @@ func buildKeepAliveMessage() *Message {
 		ID:      MsgKeepAlive,
 		Payload: nil,
 	}
+}
+
+func createMessageWithPayload(id MessageID, payload []byte) []byte {
+	msg := make([]byte, len(payload)+1+4) // len + message id + payload
+	msgLen := 1 + len(payload)
+	binary.BigEndian.PutUint32(msg, uint32(msgLen))
+	msg[4] = uint8(id)
+	copy(msg[5:], payload)
+	return msg
 }

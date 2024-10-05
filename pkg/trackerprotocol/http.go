@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync"
 )
 
 const (
@@ -25,18 +26,21 @@ func (h *Handler) handleHttp(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	println("port reserved", port)
 
 	// Generate a random peer ID
 	peerID, err := random20Bytes()
 	if err != nil {
 		return err
 	}
+	println("generated peer id")
 
 	// Build GET request to tracker
 	trackerURL, err := h.buildTrackerURL(peerID, port)
 	if err != nil {
 		return err
 	}
+	println("generated tracker url", trackerURL)
 
 	// Send GET request to tracker
 	resp, err := http.Get(trackerURL)
@@ -50,6 +54,7 @@ func (h *Handler) handleHttp(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	println("received tracker response")
 
 	// Parse tracker response
 	trackerResp, err := bencodeutil.UnmarshalTrackerResponse(body)
@@ -59,28 +64,58 @@ func (h *Handler) handleHttp(ctx context.Context) error {
 	if len(trackerResp.Peers) == 0 {
 		return errors.New("no peers found")
 	}
+	println("parsed tracker response")
 
 	// Connect to available peers
-	var clients []*Client
+	clientsCh := make(chan *Client, len(trackerResp.Peers))
+	println("attempting connection to", len(trackerResp.Peers), "peers")
+	wg := new(sync.WaitGroup)
 	for _, peer := range trackerResp.Peers {
-		client, err := NewClient(peer, peerID, h.torrent.InfoHash)
-		if err != nil {
-			fmt.Printf("Error creating client for peer %s: %s\n", peer.String(), err)
-			return err
-		}
-		clients = append(clients, client)
+		wg.Add(1)
 
-		fmt.Printf("Created client for %s\n", peer.String())
+		go func(peer2 bencodeutil.Peer) {
+			defer wg.Done()
+
+			// dial peer
+			conn, err := net.DialTimeout("tcp", peer.String(), peerDialTimeout)
+			if err != nil {
+				println("error creating client for peer", peer2.String())
+				return
+			}
+			println("dialed", conn.RemoteAddr().String())
+
+			// create client to peer
+			client := NewClient(conn, conn, NewHandshaker(conn), peerID, h.torrent.InfoHash)
+			if err := client.Init(); err != nil {
+				println("error creating client for peer", peer2.String())
+				return
+			}
+
+			clientsCh <- client
+			fmt.Printf("created client for %s\n", peer2.String())
+		}(peer)
 	}
+	wg.Wait()
+	close(clientsCh) // close channel so we don't loop over it infinitely
 
-	// Start download manager
+	// Convert peers channel into peers queue
+	var clients []*Client
+	for client := range clientsCh {
+		clients = append(clients, client)
+	}
+	fmt.Printf("found %d peers\n", len(clients))
+
+	// Start downloading
 	manager, err := NewDownloadManager(h.torrent, clients)
 	if err != nil {
 		return err
 	}
+	fmt.Println("starting download")
+
 	if err := manager.Start(ctx); err != nil {
 		return err
 	}
+	fmt.Println("download completed")
 
 	return nil
 }

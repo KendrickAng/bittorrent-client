@@ -3,7 +3,6 @@ package trackerprotocol
 import (
 	"encoding/binary"
 	"errors"
-	"example.com/btclient/pkg/bencodeutil"
 	"fmt"
 	"io"
 	"net"
@@ -16,7 +15,9 @@ const (
 
 // Client stores the state of a single client connection to a single peer.
 type Client struct {
-	conn         net.Conn
+	readConn     net.Conn
+	writeConn    net.Conn
+	handshaker   *Handshaker
 	peerID       [20]byte
 	infoHash     [20]byte
 	handshake    *Handshake
@@ -25,35 +26,41 @@ type Client struct {
 	isInterested bool
 }
 
-func NewClient(peer bencodeutil.Peer, peerID [20]byte, infoHash [20]byte) (*Client, error) {
-	conn, err := net.DialTimeout("tcp", peer.String(), peerDialTimeout)
-	if err != nil {
-		return nil, err
-	}
-	if err = conn.SetDeadline(time.Time{}); err != nil { // no I/O deadline
-		return nil, err
-	}
-
-	handshake, err := doHandshake(conn, peerID, infoHash)
-	if err != nil {
-		return nil, err
-	}
-
-	bf, err := receiveBitfield(conn)
-	if err != nil {
-		return nil, err
-	}
+func NewClient(readConn net.Conn, writeConn net.Conn,
+	handshaker *Handshaker,
+	peerID [20]byte,
+	infoHash [20]byte) *Client {
 
 	return &Client{
-		conn:      conn,
-		peerID:    peerID,
-		infoHash:  infoHash,
-		handshake: handshake,
-		bitfield:  bf.Bitfield,
+		readConn:   readConn,
+		writeConn:  writeConn,
+		handshaker: handshaker,
+		peerID:     peerID,
+		infoHash:   infoHash,
+		handshake:  nil,
+		bitfield:   nil,
 		// connections start out choked and not interested.
 		isChoked:     true,
 		isInterested: false,
-	}, nil
+	}
+}
+
+func (c *Client) Init() error {
+	handshake, err := c.doHandshake(c.peerID, c.infoHash)
+	if err != nil {
+		return err
+	}
+	println("handshake complete", c.String())
+
+	bf, err := receiveBitfield(c.readConn)
+	if err != nil {
+		return err
+	}
+	println("bitfield received", c.String(), bf)
+
+	c.handshake = handshake
+	c.bitfield = bf.Bitfield
+	return nil
 }
 
 func (c *Client) IsChoked() bool {
@@ -61,12 +68,12 @@ func (c *Client) IsChoked() bool {
 }
 
 func (c *Client) ReceiveUnchokeMessage() (*MessageUnchoke, error) {
-	_, err := receiveMessageOfType(c.conn, MsgUnchoke)
+	_, err := receiveMessageOfType(c.readConn, MsgUnchoke)
 	return &MessageUnchoke{}, err
 }
 
 func (c *Client) SendInterestedMessage() error {
-	_, err := c.conn.Write(MessageInterested{}.Encode())
+	_, err := c.writeConn.Write(MessageInterested{}.Encode())
 	return err
 }
 
@@ -75,7 +82,7 @@ func (c *Client) SendInterestedMessage() error {
 // begin: integer specifying the zero-based byte offset within the piece
 // requestLength: integer specifying the requested requestLength.
 func (c *Client) SendRequestMessage(index, begin, length uint32) error {
-	_, err := c.conn.Write(MessageRequest{
+	_, err := c.writeConn.Write(MessageRequest{
 		Index:  index,
 		Begin:  begin,
 		Length: length,
@@ -84,7 +91,7 @@ func (c *Client) SendRequestMessage(index, begin, length uint32) error {
 }
 
 func (c *Client) ReceivePieceMessage() (*MessagePiece, error) {
-	msg, err := receiveMessageOfType(c.conn, MsgPiece)
+	msg, err := receiveMessageOfType(c.readConn, MsgPiece)
 	if err != nil {
 		return nil, err
 	}
@@ -113,11 +120,20 @@ func (c *Client) ReceivePieceMessage() (*MessagePiece, error) {
 }
 
 func (c *Client) String() string {
-	return c.conn.RemoteAddr().String()
+	if c.readConn.RemoteAddr().String() == c.writeConn.RemoteAddr().String() {
+		return c.readConn.RemoteAddr().String()
+	}
+	return fmt.Sprintf("read: %s, write: %s", c.readConn.RemoteAddr().String(), c.writeConn.RemoteAddr().String())
 }
 
 func (c *Client) Close() error {
-	return c.conn.Close()
+	if err := c.readConn.Close(); err != nil {
+		return err
+	}
+	if err := c.writeConn.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Client) readInteger() (uint32, error) {
@@ -130,27 +146,26 @@ func (c *Client) readInteger() (uint32, error) {
 
 func (c *Client) readBytes(n int) ([]byte, error) {
 	buf := make([]byte, n)
-	_, err := io.ReadFull(c.conn, buf)
+	_, err := io.ReadFull(c.readConn, buf)
 	if err != nil {
 		return nil, err
 	}
 	return buf, nil
 }
 
-func doHandshake(conn net.Conn, peerID [20]byte, infoHash [20]byte) (*Handshake, error) {
-	handshaker := NewHandshaker(conn)
-	if err := handshaker.SendHandshake(peerID, infoHash); err != nil {
+func (c *Client) doHandshake(peerID [20]byte, infoHash [20]byte) (*Handshake, error) {
+	if err := c.handshaker.SendHandshake(peerID, infoHash); err != nil {
 		return nil, err
 	}
 
-	handshake, err := handshaker.ReceiveHandshake()
+	handshake, err := c.handshaker.ReceiveHandshake()
 	if err != nil {
 		return nil, err
 	}
 
 	// If both sides don't send the same info hash value, sever the connection.
 	if infoHash != handshake.InfoHash {
-		return nil, errors.Join(errors.New("different info hash value"), conn.Close())
+		return nil, errors.Join(errors.New("different info hash value"), c.Close())
 	}
 
 	return handshake, nil

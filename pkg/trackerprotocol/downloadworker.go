@@ -3,7 +3,6 @@ package trackerprotocol
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math"
 )
 
@@ -21,7 +20,7 @@ func NewDownloadWorker(client *Client, requests chan *pieceRequest, results chan
 	}
 }
 
-// Starts the worker downloading available pieces from a client.
+// Start starts the worker downloading available pieces from a client.
 func (d *DownloadWorker) Start(ctx context.Context) error {
 	for {
 		select {
@@ -38,6 +37,7 @@ func (d *DownloadWorker) Start(ctx context.Context) error {
 					d.handleError(err, req)
 					continue
 				}
+				println(d.client.String(), "unchoked")
 			}
 
 			// Unchoked, start downloading pieces
@@ -60,6 +60,7 @@ func (d *DownloadWorker) Start(ctx context.Context) error {
 					d.handleError(err, req)
 					continue
 				}
+				println(d.client.String(), " received piece message")
 				if pieceMsg.Begin != begin || pieceMsg.Index != index {
 					d.handleError(errors.New("invalid piece"), req)
 					continue
@@ -69,12 +70,14 @@ func (d *DownloadWorker) Start(ctx context.Context) error {
 
 			// TODO merge the blocks
 
+			d.results <- &pieceResult{} // TODO complete
+
 			return nil
 		}
 	}
 }
 
 func (d *DownloadWorker) handleError(err error, req *pieceRequest) {
-	fmt.Printf("Download error in %s worker: %s", d.client.String(), err.Error())
+	println("worker ", d.client.String(), " error ", err.Error())
 	d.requests <- req
 }

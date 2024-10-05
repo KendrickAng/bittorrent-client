@@ -27,12 +27,10 @@ func NewHandshaker(conn net.Conn) *Handshaker {
 }
 
 func (h *Handshaker) SendHandshake(peerID [20]byte, infoHash [20]byte) error {
+	peerID = [20]byte{0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9}
 	handshake := buildHandshake(btProtocolID, peerID, infoHash)
 	_, err := h.peerConn.Write(handshake)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (h *Handshaker) ReceiveHandshake() (*Handshake, error) {
