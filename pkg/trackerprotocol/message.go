@@ -2,6 +2,7 @@ package trackerprotocol
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 )
@@ -56,6 +57,14 @@ type Message struct {
 	Length uint32
 }
 
+func (m *Message) AsMsgBitfield() *MessageBitfield {
+	return MessageBitfield{}.Decode(m)
+}
+
+func (m *Message) AsMsgPiece() *MessagePiece {
+	return MessagePiece{}.Decode(m)
+}
+
 type MessageUnchoke struct{}
 
 func (m MessageUnchoke) Encode() []byte {
@@ -70,6 +79,15 @@ func (m MessageInterested) Encode() []byte {
 
 type MessageBitfield struct {
 	Bitfield Bitfield
+}
+
+func (m MessageBitfield) Decode(msg *Message) *MessageBitfield {
+	if msg.ID != MsgBitfield {
+		panic("invalid message bitfield")
+	}
+	return &MessageBitfield{
+		Bitfield: msg.Payload,
+	}
 }
 
 type MessageRequest struct {
@@ -112,6 +130,17 @@ func (m MessagePiece) Encode() []byte {
 	return createMessageWithPayload(MsgPiece, payload)
 }
 
+func (m MessagePiece) Decode(msg *Message) *MessagePiece {
+	if msg.ID != MsgPiece {
+		panic("invalid message piece")
+	}
+	return &MessagePiece{
+		Index: binary.BigEndian.Uint32(msg.Payload[0:4]),
+		Begin: binary.BigEndian.Uint32(msg.Payload[4:8]),
+		Block: msg.Payload[8:],
+	}
+}
+
 type MessageKeepAlive struct{}
 
 func (m *Message) Serialize() []byte {
@@ -141,7 +170,10 @@ func (m *Message) String() string {
 func Deserialize(r io.Reader) (*Message, error) {
 	// Read requestLength of message
 	lengthBuffer := make([]byte, 4)
-	_, err := io.ReadFull(r, lengthBuffer)
+	n, err := r.Read(lengthBuffer)
+	if n == 0 {
+		return nil, errors.New("unexpected 0 length read")
+	}
 	if err != nil {
 		return nil, err
 	}

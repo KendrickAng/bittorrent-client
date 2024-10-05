@@ -57,33 +57,36 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 	}
 	defer close(pieceDownloadChannel)
 
+	// TODO for now just use one goroutine
 	// handle with clients
-	for _, peer := range d.clients {
-		go func(peer *Client, requests chan *pieceRequest, results chan *pieceResult) {
-			worker := NewDownloadWorker(peer, requests, results)
-			if err := worker.Start(ctx); err != nil {
-				println("worker ", peer.String(), " error ", err.Error())
-			}
-		}(peer, pieceDownloadChannel, d.pieceResultChannel)
+	worker := NewDownloadWorker(d.clients[0], pieceDownloadChannel, d.pieceResultChannel)
+	if err := worker.Start(ctx); err != nil {
+		return err
 	}
 
+	// Create one handler per peer
+	//for _, peer := range d.clients {
+	//	go func(peer *Client, requests chan *pieceRequest, results chan *pieceResult) {
+	//		worker := NewDownloadWorker(peer, requests, results)
+	//		if err := worker.Start(ctx); err != nil {
+	//			println("worker ", peer.String(), " error ", err.Error())
+	//		}
+	//	}(peer, pieceDownloadChannel, d.pieceResultChannel)
+	//}
+
 	// continue until user cancels or download completes
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-d.done:
-			return nil
-		case pieceResult := <-d.pieceResultChannel:
-			isDone, err := d.reconstructer.Reconstruct(pieceResult.piece, pieceResult.index)
-			if err != nil {
-				fmt.Printf("error reconstructing piece with pieceIndex %d\n", pieceResult.index)
-			}
-			if isDone {
-				close(d.done)
-			}
-		}
+	var results []*pieceResult
+	for result := range d.pieceResultChannel {
+		results = append(results, result)
 	}
+
+	final, err := d.reconstructer.Reconstruct(results)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("COMPLETED! Got %s\n", string(final))
+
+	return nil
 }
 
 func createDownloadTasks(torrent *bencodeutil.SimpleTorrentFile) []pieceRequest {

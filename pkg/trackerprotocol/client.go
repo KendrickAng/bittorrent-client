@@ -67,6 +67,22 @@ func (c *Client) IsChoked() bool {
 	return c.isChoked
 }
 
+func (c *Client) SetChoked(isChoked bool) {
+	c.isChoked = isChoked
+}
+
+func (c *Client) GetBitfield() Bitfield {
+	return c.bitfield
+}
+
+func (c *Client) SetBitfield(bf Bitfield) {
+	c.bitfield = bf
+}
+
+func (c *Client) ReceiveMessage() (*Message, error) {
+	return Deserialize(c.readConn)
+}
+
 func (c *Client) ReceiveUnchokeMessage() (*MessageUnchoke, error) {
 	_, err := receiveMessageOfType(c.readConn, MsgUnchoke)
 	return &MessageUnchoke{}, err
@@ -82,11 +98,15 @@ func (c *Client) SendInterestedMessage() error {
 // begin: integer specifying the zero-based byte offset within the piece
 // requestLength: integer specifying the requested requestLength.
 func (c *Client) SendRequestMessage(index, begin, length uint32) error {
-	_, err := c.writeConn.Write(MessageRequest{
+	b := MessageRequest{
 		Index:  index,
 		Begin:  begin,
 		Length: length,
-	}.Encode())
+	}.Encode()
+	n, err := c.writeConn.Write(b)
+	if n == 0 {
+		return errors.New("failed to send request")
+	}
 	return err
 }
 
