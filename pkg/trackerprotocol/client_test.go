@@ -117,6 +117,42 @@ func TestClient_SendRequestMessage(t *testing.T) {
 	}
 }
 
+func TestClient_ReceivePieceMessage(t *testing.T) {
+	// Arrange
+	var a1 [20]byte
+	var a2 [20]byte
+	reader, writer := net.Pipe()
+	client := NewClient(reader, writer, NewHandshaker(writer), a1, a2)
+	defer client.Close()
+
+	go func() {
+		if _, err := writer.Write(MessagePiece{
+			Index: 1,
+			Begin: 2,
+			Block: []byte{3, 4, 5, 6, 7, 8, 9},
+		}.Encode()); err != nil {
+			t.Error(err)
+		}
+
+		writer.Close()
+	}()
+
+	// Act
+	pieceMsg, err := client.ReceivePieceMessage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pieceMsg.Index != 1 {
+		t.Fatal("incorrect index")
+	}
+	if pieceMsg.Begin != 2 {
+		t.Fatal("incorrect begin")
+	}
+	if !bytes.Equal(pieceMsg.Block, []byte{3, 4, 5, 6, 7, 8, 9}) {
+		t.Fatal("incorrect bytes")
+	}
+}
+
 func unchokeMessage() []byte {
 	return MessageUnchoke{}.Encode()
 }

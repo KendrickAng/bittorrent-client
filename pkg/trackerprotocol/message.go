@@ -104,6 +104,14 @@ type MessagePiece struct {
 	Block []byte
 }
 
+func (m MessagePiece) Encode() []byte {
+	payload := make([]byte, 8+len(m.Block))
+	binary.BigEndian.PutUint32(payload[0:4], m.Index)
+	binary.BigEndian.PutUint32(payload[4:8], m.Begin)
+	copy(payload[8:], m.Block)
+	return createMessageWithPayload(MsgPiece, payload)
+}
+
 type MessageKeepAlive struct{}
 
 func (m *Message) Serialize() []byte {

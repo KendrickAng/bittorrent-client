@@ -96,21 +96,9 @@ func (c *Client) ReceivePieceMessage() (*MessagePiece, error) {
 		return nil, err
 	}
 
-	pieceIndex, err := c.readInteger()
-	if err != nil {
-		return nil, err
-	}
-
-	pieceBegin, err := c.readInteger()
-	if err != nil {
-		return nil, err
-	}
-
-	blockLength := msg.Length - 9 // message id + pieceIndex + begin = 9
-	block, err := c.readBytes(int(blockLength))
-	if err != nil {
-		return nil, err
-	}
+	pieceIndex := binary.BigEndian.Uint32(msg.Payload[0:4])
+	pieceBegin := binary.BigEndian.Uint32(msg.Payload[4:8])
+	block := msg.Payload[8:]
 
 	return &MessagePiece{
 		Index: pieceIndex,

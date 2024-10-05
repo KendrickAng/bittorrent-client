@@ -77,7 +77,7 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 		case pieceResult := <-d.pieceResultChannel:
 			isDone, err := d.reconstructer.Reconstruct(pieceResult.piece, pieceResult.index)
 			if err != nil {
-				fmt.Printf("error reconstructing piece with pieceIndex %d", pieceResult.index)
+				fmt.Printf("error reconstructing piece with pieceIndex %d\n", pieceResult.index)
 			}
 			if isDone {
 				close(d.done)
