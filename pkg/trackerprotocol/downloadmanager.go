@@ -58,6 +58,7 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 		return err
 	}
 
+	// TODO save file to disk once download is completed
 	// continue until user cancels or download completes
 	final, err := d.reconstructer.Reconstruct(results)
 	if err != nil {
