@@ -58,6 +58,11 @@ func (c *Client) Init() error {
 	}
 	println("bitfield received", c.String(), bf)
 
+	// TODO throw an error if the bitfield is incorrect.
+	// From the docs: A bitfield of the wrong length is considered an error.
+	// Clients should drop the connection if they receive bitfields that are not of the correct size,
+	// or if the bitfield has any of the spare bits set.
+
 	c.handshake = handshake
 	c.bitfield = bf.Bitfield
 	return nil
@@ -110,6 +115,7 @@ func (c *Client) SendRequestMessage(index, begin, length uint32) error {
 	return err
 }
 
+// TODO we can probably remove this and the other Receive methods.
 func (c *Client) ReceivePieceMessage() (*MessagePiece, error) {
 	msg, err := receiveMessageOfType(c.readConn, MsgPiece)
 	if err != nil {

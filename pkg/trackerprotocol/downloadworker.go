@@ -25,6 +25,8 @@ func (d *DownloadWorker) Start(ctx context.Context, req pieceRequest) (*pieceRes
 		return nil, ctx.Err()
 	}
 
+	// TODO add bitfield checking
+
 	// If choked, try to unchoke ourselves
 	if d.client.IsChoked() {
 		if err := d.client.SendInterestedMessage(); err != nil {
