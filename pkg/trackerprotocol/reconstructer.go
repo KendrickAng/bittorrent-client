@@ -19,13 +19,20 @@ func NewReconstructer(pieceHashes [][20]byte) *Reconstructer {
 	}
 }
 
-func (r *Reconstructer) Reconstruct(results []*pieceResult) ([]byte, error) {
-	var final []byte
-	for i, result := range results {
-		if r.pieceHashes[i] != result.hash {
+func (r *Reconstructer) Reconstruct(resultsChan chan *pieceResult) ([]byte, error) {
+	pieces := make([][]byte, len(r.pieceHashes))
+	for result := range resultsChan {
+		if r.pieceHashes[result.index] != result.hash {
 			return nil, errors.New("invalid piece hash")
 		}
-		final = append(final, result.piece...)
+		pieces[result.index] = result.piece
 	}
-	return final, nil
+
+	// flatten
+	var original []byte
+	for _, f := range pieces {
+		original = append(original, f...)
+	}
+
+	return original, nil
 }

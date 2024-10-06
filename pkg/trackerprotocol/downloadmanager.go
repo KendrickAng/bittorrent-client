@@ -4,6 +4,7 @@ import (
 	"context"
 	"example.com/btclient/pkg/bencodeutil"
 	"fmt"
+	"sync"
 )
 
 const (
@@ -50,17 +51,45 @@ func NewDownloadManager(torrent *bencodeutil.SimpleTorrentFile, clients []*Clien
 func (d *DownloadManager) Start(ctx context.Context) error {
 	// split pieces into pieces of work
 	downloadTasks := createDownloadTasks(d.torrent)
+	downloadTasksChan := make(chan pieceRequest, len(downloadTasks))
+	for _, downloadTask := range downloadTasks {
+		downloadTasksChan <- downloadTask
+	}
 
-	// TODO make this multi-threaded and download from multiple clients
-	// handle with clients
-	results, err := NewDownloadWorker(d.clients[0]).Start(ctx, downloadTasks)
-	if err != nil {
-		return err
+	// start a goroutine for each client to download from
+	downloadResultsChan := make(chan *pieceResult, len(downloadTasks))
+	wg := new(sync.WaitGroup)
+	wg.Add(len(downloadTasks))
+	ctx, cancel := context.WithCancel(ctx)
+	go func() {
+		wg.Wait()
+		close(downloadResultsChan)
+		cancel()
+	}()
+
+	for _, client := range d.clients {
+		go func(ctx context.Context, client *Client) {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case downloadTask := <-downloadTasksChan:
+					result, err := NewDownloadWorker(client).Start(ctx, downloadTask)
+					if err != nil {
+						downloadTasksChan <- downloadTask
+					} else {
+						downloadResultsChan <- result
+						wg.Done()
+					}
+				}
+			}
+		}(ctx, client)
 	}
 
 	// TODO save file to disk once download is completed
-	// continue until user cancels or download completes
-	final, err := d.reconstructer.Reconstruct(results)
+	// TODO optimize by writing parts to disk as they arrive, as well
+	// blocking reconstruct that completes when wait group is done
+	final, err := d.reconstructer.Reconstruct(downloadResultsChan)
 	if err != nil {
 		return err
 	}

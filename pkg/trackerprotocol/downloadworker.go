@@ -20,41 +20,45 @@ func NewDownloadWorker(client *Client) *DownloadWorker {
 }
 
 // Start starts the worker downloading available pieces from a client.
-func (d *DownloadWorker) Start(ctx context.Context, requests []pieceRequest) ([]*pieceResult, error) {
-	pieceResults := make([]*pieceResult, len(requests))
+func (d *DownloadWorker) Start(ctx context.Context, req pieceRequest) (*pieceResult, error) {
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 
-	for i, req := range requests {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
+	// If choked, try to unchoke ourselves
+	if d.client.IsChoked() {
+		if err := d.client.SendInterestedMessage(); err != nil {
+			return nil, err
+		}
+		if _, err := d.client.ReceiveUnchokeMessage(); err != nil {
+			return nil, err
+		}
+		d.client.SetChoked(false)
+		println(d.client.String(), "unchoked")
+	}
+
+	remainingBytes := req.pieceLength
+	numRequests := int(math.Ceil(float64(req.pieceLength) / float64(req.requestLength)))
+	index := uint32(req.pieceIndex)
+	blocks := make([][]byte, numRequests)
+
+	// number of 'request' messages to send to download a single piece
+	for i := 0; i < numRequests; i++ {
+		begin := uint32(req.requestLength * i)
+		reqLength := uint32(min(req.requestLength, remainingBytes))
+
+		// send a 'request' message with the goal of getting a 'piece' message
+		if err := d.client.SendRequestMessage(index, begin, reqLength); err != nil {
+			return nil, err
 		}
 
-		// If choked, try to unchoke ourselves
-		if d.client.IsChoked() {
-			if err := d.client.SendInterestedMessage(); err != nil {
-				return nil, err
-			}
-			if _, err := d.client.ReceiveUnchokeMessage(); err != nil {
-				return nil, err
-			}
-			d.client.SetChoked(false)
-			println(d.client.String(), "unchoked")
-		}
-
-		remainingBytes := req.pieceLength
-		numRequests := int(math.Ceil(float64(req.pieceLength) / float64(req.requestLength)))
-		index := uint32(req.pieceIndex)
-		blocks := make([][]byte, numRequests)
-
-		for i := 0; i < numRequests; i++ {
-			begin := uint32(req.requestLength * i)
-			reqLength := uint32(min(req.requestLength, remainingBytes))
-
-			if err := d.client.SendRequestMessage(index, begin, reqLength); err != nil {
-				return nil, err
-			}
-
-		Inner:
-			for {
+		// keep receiving messages until we get a 'piece' message
+	Inner:
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
 				msg, err := d.client.ReceiveMessage()
 				if err != nil {
 					return nil, err
@@ -77,23 +81,20 @@ func (d *DownloadWorker) Start(ctx context.Context, requests []pieceRequest) ([]
 					blocks[i] = piece.Block
 					remainingBytes -= len(piece.Block)
 					break Inner
-				default:
-					panic(msg.ID)
 				}
 			}
 		}
-
-		var finalBlocks []byte
-		for _, block := range blocks {
-			finalBlocks = append(finalBlocks, block...)
-		}
-
-		pieceResults[i] = &pieceResult{
-			piece: finalBlocks,
-			index: req.pieceIndex,
-			hash:  hashutil.BTHash(finalBlocks),
-		}
 	}
 
-	return pieceResults, nil
+	// re-create the final piece from all the 'piece' messages
+	var finalBlocks []byte
+	for _, block := range blocks {
+		finalBlocks = append(finalBlocks, block...)
+	}
+
+	return &pieceResult{
+		piece: finalBlocks,
+		index: req.pieceIndex,
+		hash:  hashutil.BTHash(finalBlocks),
+	}, nil
 }
