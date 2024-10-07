@@ -4,7 +4,10 @@ import (
 	"context"
 	"example.com/btclient/pkg/bencodeutil"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
+	"time"
 )
 
 const (
@@ -74,6 +77,14 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 				case <-ctx.Done():
 					return
 				case downloadTask := <-downloadTasksChan:
+					// skip if client doesn't have the piece
+					if !client.bitfield.HasBit(downloadTask.pieceIndex) {
+						downloadTasksChan <- downloadTask
+						time.Sleep(1 * time.Second) // prevent starvation
+						continue
+					}
+
+					// have client download the piece
 					result, err := NewDownloadWorker(client).Start(ctx, downloadTask)
 					if err != nil {
 						downloadTasksChan <- downloadTask
@@ -93,7 +104,27 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("COMPLETED! Got %s\n", string(final))
+
+	// write the downloaded bytes to disk
+	f, err := os.OpenFile(d.torrent.Name, os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	n, err := f.Write(final)
+	if err != nil {
+		return err
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	absPath, err := filepath.Abs(filepath.Join(cwd, f.Name()))
+	if err != nil {
+		return err
+	}
+	fmt.Printf("wrote %d bytes to %s\n", n, absPath)
 
 	return nil
 }
