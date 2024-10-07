@@ -11,6 +11,9 @@ import (
 )
 
 func Run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// Parse flags
 	flags, err := GetFlags()
 	if err != nil {
@@ -34,7 +37,7 @@ func Run(ctx context.Context) error {
 		return err
 	}
 
-	// Handle
+	// Handle (blocking)
 	handler, err := trackerprotocol.NewHandler(torrent)
 	if err != nil {
 		return err
@@ -44,10 +47,13 @@ func Run(ctx context.Context) error {
 	}
 	defer handler.Close()
 
-	// Wait until SIGINT is given
+	// Wait until SIGINT is given, or the handler succeeds
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-	<-signals
+	signal.Notify(signals, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+	go func() {
+		defer cancel()
+		<-signals
+	}()
 
 	return nil
 }
