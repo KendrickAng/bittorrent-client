@@ -12,14 +12,14 @@ func SplitChunksOf20(s string) ([][20]byte, error) {
 	splitChunks := SplitChunks(s, 20)
 
 	var chunks [][20]byte
-	for i := 0; i < len(splitChunks); i++ {
+	for _, chunk := range splitChunks {
 		// sanity-checking
-		if len(splitChunks[i]) != 20 {
-			return nil, fmt.Errorf("chunk size is not 20, got %d", len(splitChunks[i]))
+		if len(chunk) != 20 {
+			return nil, fmt.Errorf("chunk size is not 20, got %d", len(chunk))
 		}
 
 		buf := make([]byte, 20)
-		copy(buf, []byte(splitChunks[i]))
+		copy(buf, chunk)
 		chunks = append(chunks, [20]byte(buf))
 	}
 

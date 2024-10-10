@@ -1,6 +1,7 @@
 package trackerprotocol
 
 import (
+	"bytes"
 	"context"
 	"example.com/btclient/pkg/bencodeutil"
 	"fmt"
@@ -44,10 +45,9 @@ type pieceResult struct {
 
 func NewDownloadManager(torrent *bencodeutil.SimpleTorrentFile, clients []*Client) (*DownloadManager, error) {
 	return &DownloadManager{
-		torrent:       torrent,
-		clients:       clients,
-		reconstructer: NewReconstructer(torrent.PieceHashes),
-		done:          make(chan struct{}),
+		torrent: torrent,
+		clients: clients,
+		done:    make(chan struct{}),
 	}, nil
 }
 
@@ -88,6 +88,10 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 					result, err := NewDownloadWorker(client).Start(ctx, downloadTask)
 					if err != nil {
 						downloadTasksChan <- downloadTask
+					} else if !bytes.Equal(d.torrent.PieceHashes[result.index][:], result.hash[:]) {
+						// TODO: fix the bug where the last piece has an invalid hash.
+						println("invalid piece hash for piece", result.index)
+						downloadTasksChan <- downloadTask
 					} else {
 						downloadResultsChan <- result
 						wg.Done()
@@ -100,9 +104,19 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 	// TODO save file to disk once download is completed
 	// TODO optimize by writing parts to disk as they arrive, as well
 	// blocking reconstruct that completes when wait group is done
-	final, err := d.reconstructer.Reconstruct(downloadResultsChan)
-	if err != nil {
-		return err
+	pieceHashes := d.torrent.PieceHashes
+	pieces := make([][]byte, len(pieceHashes))
+	for result := range downloadResultsChan {
+		if pieceHashes[result.index] != result.hash {
+			return fmt.Errorf("invalid hash: expected: %x, got: %x", result.hash, pieceHashes[result.index])
+		}
+		pieces[result.index] = result.piece
+	}
+
+	// flatten
+	var original []byte
+	for _, f := range pieces {
+		original = append(original, f...)
 	}
 
 	// write the downloaded bytes to disk
@@ -112,7 +126,7 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 	}
 	defer f.Close()
 
-	n, err := f.Write(final)
+	n, err := f.Write(original)
 	if err != nil {
 		return err
 	}
@@ -132,20 +146,27 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 func createDownloadTasks(torrent *bencodeutil.SimpleTorrentFile) []pieceRequest {
 	var downloadTasks []pieceRequest
 
+	// TODO: this logic should be tested
 	for i, pieceHash := range torrent.PieceHashes {
-		// Last piece may be smaller than piece length
 		pieceLength := torrent.PieceLength
-		if i == len(torrent.PieceHashes)-1 {
+
+		// Last piece may be smaller than piece length
+		if (i == len(torrent.PieceHashes)-1) && (torrent.Length%torrent.PieceLength != 0) {
 			pieceLength = torrent.Length % torrent.PieceLength
 		}
 
-		downloadTasks = append(downloadTasks, pieceRequest{
-			pieceIndex:        i,
-			requestLength:     maxRequestLength,
-			pieceLength:       pieceLength,
-			expectedPieceHash: pieceHash,
-		})
+		request := createDownloadTask(i, pieceLength, pieceHash)
+		downloadTasks = append(downloadTasks, request)
 	}
 
 	return downloadTasks
+}
+
+func createDownloadTask(pieceIndex int, pieceLength int, expectedPieceHash [20]byte) pieceRequest {
+	return pieceRequest{
+		pieceIndex:        pieceIndex,
+		requestLength:     maxRequestLength,
+		pieceLength:       pieceLength,
+		expectedPieceHash: expectedPieceHash,
+	}
 }

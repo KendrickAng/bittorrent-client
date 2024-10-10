@@ -74,7 +74,7 @@ func (d *DownloadWorker) Start(ctx context.Context, req pieceRequest) (*pieceRes
 					d.client.SetBitfield(msg.AsMsgBitfield().Bitfield)
 				case MsgPiece:
 					piece := msg.AsMsgPiece()
-					println("piece", index, ":", begin, "of length", len(piece.Block), "of total", req.pieceLength)
+					println("piece", index, ":", begin, "to", begin+uint32(len(piece.Block)), "of total", req.pieceLength)
 					if piece.Begin != begin || piece.Index != index {
 						return nil, errors.New("invalid piece")
 					}
