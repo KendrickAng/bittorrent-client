@@ -3,14 +3,13 @@ package btclient
 import (
 	"context"
 	"example.com/btclient/pkg/bittorrent/torrentfile"
-	"example.com/btclient/pkg/closelogger"
 	"example.com/btclient/pkg/trackerprotocol"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
-func Run(ctx context.Context) error {
+func Run(ctx context.Context) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -25,7 +24,11 @@ func Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer closelogger.CloseOrLog(file, flags.TorrentFileName)
+	defer func() {
+		if e := file.Close(); e != nil && err == nil {
+			err = e
+		}
+	}()
 
 	// Decode bencoded file
 	bencodedData, err := torrentfile.ReadTorrentFile(file)

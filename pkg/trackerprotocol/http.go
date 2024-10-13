@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"example.com/btclient/pkg/bittorrent/tracker"
-	"example.com/btclient/pkg/closelogger"
 	"fmt"
 	"golang.org/x/exp/rand"
 	"io"
@@ -23,7 +22,7 @@ const (
 	endPort   = 6889
 )
 
-func (h *Handler) handleHttp(ctx context.Context) error {
+func (h *Handler) handleHttp(ctx context.Context) (err error) {
 	// Reserve port for this application
 	port, err := h.reservePort()
 	if err != nil {
@@ -50,7 +49,11 @@ func (h *Handler) handleHttp(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer closelogger.CloseOrLog(resp.Body, "Tracker GET response body")
+	defer func() {
+		if e := resp.Body.Close(); e != nil && err == nil {
+			err = e
+		}
+	}()
 
 	// Retrieve tracker response
 	body, err := io.ReadAll(resp.Body)
