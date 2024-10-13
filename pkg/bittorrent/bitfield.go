@@ -1,11 +1,13 @@
-package trackerprotocol
+package bittorrent
 
 import (
 	"slices"
 	"strings"
 )
 
-// Bitfield represents the pieces that a peer has available for download.
+// Bitfield represents the pieces that a peer has available for download, as a sequence of bits.
+// The first byte of the bitfield corresponds to indices 0 - 7 from high bit to low bit, respectively.
+// The next one 8-15, etc. Spare bits at the end are set to zero.
 type Bitfield []byte
 
 func (b Bitfield) HasBit(bitIdx int) bool {

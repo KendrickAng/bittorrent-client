@@ -3,6 +3,7 @@ package trackerprotocol
 import (
 	"encoding/binary"
 	"errors"
+	"example.com/btclient/pkg/bittorrent"
 	"fmt"
 	"io"
 )
@@ -78,7 +79,7 @@ func (m MessageInterested) Encode() []byte {
 }
 
 type MessageBitfield struct {
-	Bitfield Bitfield
+	Bitfield bittorrent.Bitfield
 }
 
 func (m MessageBitfield) Decode(msg *Message) *MessageBitfield {

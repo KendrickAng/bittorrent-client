@@ -3,6 +3,7 @@ package trackerprotocol
 import (
 	"encoding/binary"
 	"errors"
+	"example.com/btclient/pkg/bittorrent"
 	"fmt"
 	"io"
 	"net"
@@ -21,7 +22,7 @@ type Client struct {
 	peerID       [20]byte
 	infoHash     [20]byte
 	handshake    *Handshake
-	bitfield     Bitfield
+	bitfield     bittorrent.Bitfield
 	isChoked     bool
 	isInterested bool
 }
@@ -76,11 +77,11 @@ func (c *Client) SetChoked(isChoked bool) {
 	c.isChoked = isChoked
 }
 
-func (c *Client) GetBitfield() Bitfield {
+func (c *Client) GetBitfield() bittorrent.Bitfield {
 	return c.bitfield
 }
 
-func (c *Client) SetBitfield(bf Bitfield) {
+func (c *Client) SetBitfield(bf bittorrent.Bitfield) {
 	c.bitfield = bf
 }
 

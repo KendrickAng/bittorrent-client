@@ -1,4 +1,4 @@
-package trackerprotocol
+package bittorrent
 
 import (
 	"encoding/binary"
