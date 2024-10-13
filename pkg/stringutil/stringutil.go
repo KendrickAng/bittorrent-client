@@ -1,6 +1,7 @@
 package stringutil
 
 import (
+	"crypto/rand"
 	"example.com/btclient/pkg/preconditions"
 	"fmt"
 )
@@ -33,4 +34,25 @@ func chunksOfN(s string, chunkSize int) []string {
 		}
 	}
 	return chunks
+}
+
+// Random20Bytes generates a random byte slice of 20 bytes.
+func Random20Bytes() ([20]byte, error) {
+	var bb [20]byte
+
+	b, err := randomBytes(20)
+	if err != nil {
+		return bb, err
+	}
+
+	copy(bb[:], b)
+	return bb, nil
+}
+
+func randomBytes(n int) ([]byte, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return nil, err
+	}
+	return b, nil
 }

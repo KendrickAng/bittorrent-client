@@ -8,8 +8,8 @@ import (
 	"example.com/btclient/pkg/bittorrent/client"
 	"example.com/btclient/pkg/bittorrent/handshake"
 	"example.com/btclient/pkg/bittorrent/tracker"
+	"example.com/btclient/pkg/stringutil"
 	"fmt"
-	"golang.org/x/exp/rand"
 	"io"
 	"net"
 	"net/http"
@@ -34,7 +34,7 @@ func (h *Handler) handleHttp(ctx context.Context) (err error) {
 	println("port reserved", port)
 
 	// Generate a random peer ID
-	peerID, err := random20Bytes()
+	peerID, err := stringutil.Random20Bytes()
 	if err != nil {
 		return err
 	}
@@ -156,24 +156,4 @@ func (h *Handler) buildTrackerURL(peerID [20]byte, port int) (string, error) {
 	}
 	base.RawQuery = params.Encode()
 	return base.String(), nil
-}
-
-func random20Bytes() ([20]byte, error) {
-	var bb [20]byte
-
-	b, err := randomBytes(20)
-	if err != nil {
-		return bb, err
-	}
-
-	copy(bb[:], b)
-	return bb, nil
-}
-
-func randomBytes(n int) ([]byte, error) {
-	b := make([]byte, n)
-	if _, err := rand.Read(b); err != nil {
-		return nil, err
-	}
-	return b, nil
 }
