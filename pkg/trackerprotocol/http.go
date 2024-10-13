@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"sync"
@@ -75,7 +76,7 @@ func (h *Handler) handleHttp(ctx context.Context) error {
 	for _, peer := range trackerResp.Peers {
 		wg.Add(1)
 
-		go func(peer2 tracker.Peer) {
+		go func(peer2 netip.AddrPort) {
 			defer wg.Done()
 
 			// dial peer

@@ -5,9 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/jackpal/bencode-go"
-	"net"
+	"net/netip"
 )
 
+// Response represents information from a http response from a BitTorrent tracker.
 type Response struct {
 	// Human-readable error message as to why the request failed.
 	FailureReason string
@@ -16,28 +17,7 @@ type Response struct {
 	RefreshInterval int
 
 	// List of (IP, Port), each representing a peer.
-	Peers []Peer
-}
-
-type Peer struct {
-	IP   net.IP
-	Port uint16
-}
-
-func (p *Peer) String() string {
-	return fmt.Sprintf("%s:%d", p.IP, p.Port)
-}
-
-// Bencoded response received when connecting to a tracker.
-type rawTrackerResponse struct {
-	// Human-readable error message as to why the request failed.
-	FailureReason string `bencode:"failure reason,omitempty"`
-
-	// Interval in seconds that the client should wait between sending regular re-requests to the tracker.
-	Interval int `bencode:"interval"`
-
-	// List of (IP, Port), each representing a peer.
-	Peers string `bencode:"peers"`
+	Peers []netip.AddrPort
 }
 
 // ReadResponse reads and returns a BitTorrent tracker response from r.
@@ -53,12 +33,13 @@ func ReadResponse(r *bufio.Reader) (*Response, error) {
 	}
 
 	n := len(rawPeers) / compactPeerBytesLen
-	peers := make([]Peer, n)
+	peers := make([]netip.AddrPort, n)
 	for i := 0; i < n; i++ {
 		start := i * compactPeerBytesLen
 		end := start + compactPeerBytesLen
-		peers[i].IP = rawPeers[start : start+4] // 4 bytes for integer
-		peers[i].Port = binary.BigEndian.Uint16(rawPeers[start+4 : end])
+		addr := ([4]byte)(rawPeers[start : start+4]) // 4 bytes for integer
+		port := binary.BigEndian.Uint16(rawPeers[start+4 : end])
+		peers[i] = netip.AddrPortFrom(netip.AddrFrom4(addr), port)
 	}
 
 	return &Response{
@@ -66,4 +47,16 @@ func ReadResponse(r *bufio.Reader) (*Response, error) {
 		RefreshInterval: rawResponse.Interval,
 		Peers:           peers,
 	}, nil
+}
+
+// Bencoded response received when connecting to a tracker.
+type rawTrackerResponse struct {
+	// Human-readable error message as to why the request failed.
+	FailureReason string `bencode:"failure reason,omitempty"`
+
+	// Interval in seconds that the client should wait between sending regular re-requests to the tracker.
+	Interval int `bencode:"interval"`
+
+	// List of (IP, Port), each representing a peer.
+	Peers string `bencode:"peers"`
 }
