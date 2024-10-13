@@ -1,28 +1,48 @@
-package trackerprotocol
+package client
 
 import (
 	"context"
 	"errors"
 	"example.com/btclient/pkg/bittorrent"
-	"example.com/btclient/pkg/bittorrent/client"
 	"example.com/btclient/pkg/bittorrent/message"
+	"example.com/btclient/pkg/bittorrent/peer"
 	"math"
 )
 
-// DownloadWorker handles the download of a single piece of data in the torrent.
-// A torrent is split into many pieces for download.
-type DownloadWorker struct {
-	client *client.Client
+const (
+	maxRequestLength = 16384 // 2 ^ 14 (16kiB)
+)
+
+type pieceRequest struct {
+	// Index identifying the piece to download.
+	pieceIndex int
+	// Size of a piece, in bytes.
+	pieceLength int
+	// Bytes to download in a single request message, in bytes.
+	requestLength     int
+	expectedPieceHash [20]byte
 }
 
-func NewDownloadWorker(client *client.Client) *DownloadWorker {
-	return &DownloadWorker{
+type pieceResult struct {
+	piece []byte
+	index int
+	hash  [20]byte
+}
+
+// downloadWorker handles the download of a single piece of data in the torrent.
+// A torrent is split into many pieces for download.
+type downloadWorker struct {
+	client *peer.Client
+}
+
+func newDownloadWorker(client *peer.Client) *downloadWorker {
+	return &downloadWorker{
 		client: client,
 	}
 }
 
-// Start starts the worker downloading available pieces from a client.
-func (d *DownloadWorker) Start(ctx context.Context, req pieceRequest) (*pieceResult, error) {
+// start starts the worker downloading available pieces from a client.
+func (d *downloadWorker) start(ctx context.Context, req pieceRequest) (*pieceResult, error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}

@@ -20,8 +20,8 @@ type Response struct {
 	Peers []netip.AddrPort
 }
 
-// ReadResponse reads and returns a BitTorrent tracker response from r.
-func ReadResponse(r *bufio.Reader) (*Response, error) {
+// readResponse reads and returns a BitTorrent tracker response from r.
+func readResponse(r *bufio.Reader) (*Response, error) {
 	var rawResponse rawTrackerResponse
 	if err := bencode.Unmarshal(r, &rawResponse); err != nil {
 		return nil, err

@@ -2,8 +2,8 @@ package btclient
 
 import (
 	"context"
+	"example.com/btclient/pkg/bittorrent/client"
 	"example.com/btclient/pkg/bittorrent/torrentfile"
-	"example.com/btclient/pkg/trackerprotocol"
 	"os"
 	"os/signal"
 	"syscall"
@@ -41,11 +41,11 @@ func Run(ctx context.Context) (err error) {
 	}
 
 	// Handle (blocking)
-	handler, err := trackerprotocol.NewHandler(torrent)
+	handler, err := client.NewClient(torrent)
 	if err != nil {
 		return err
 	}
-	if err := handler.Handle(ctx); err != nil {
+	if _, err := handler.Handle(ctx); err != nil {
 		return err
 	}
 	defer handler.Close()
