@@ -2,14 +2,17 @@ package preconditions
 
 import "fmt"
 
-func CheckArgumentM(expr bool, msg string) {
+// CheckArgument panics with s if expr is not true.
+func CheckArgument(expr bool, s string) {
+	fmt.Sprint()
 	if !expr {
-		panic(msg)
+		panic(s)
 	}
 }
 
-func CheckArgument(expr bool) {
+// CheckArgumentf panics with the formatted string if expr is not true.
+func CheckArgumentf(expr bool, format string, args ...any) {
 	if !expr {
-		panic(fmt.Errorf("expected true, got false"))
+		panic(fmt.Sprintf(format, args...))
 	}
 }

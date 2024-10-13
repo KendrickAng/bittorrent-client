@@ -2,6 +2,7 @@ package torrentfile
 
 // SimpleTorrentFile represents a simplified, flattened version of [TorrentFile].
 type SimpleTorrentFile struct {
+	// The URL of the tracker.
 	Announce string
 	// SHA-1 hash of the entire bencoded info dict.
 	InfoHash [20]byte

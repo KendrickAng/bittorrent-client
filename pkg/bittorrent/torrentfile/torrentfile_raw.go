@@ -105,7 +105,7 @@ func (t *TorrentFile) Simplify() (SimpleTorrentFile, error) {
 	bufHash := bittorrent.Hash(buf.Bytes())
 
 	// Split pieces into pieces of 20 bytes each
-	sha1Chunks, err := stringutil.SplitChunksOf20(t.Info.Pieces)
+	sha1Chunks, err := stringutil.ChunksOf20(t.Info.Pieces)
 	if err != nil {
 		return SimpleTorrentFile{}, err
 	}

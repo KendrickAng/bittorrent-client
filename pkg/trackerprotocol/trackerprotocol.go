@@ -25,7 +25,7 @@ type Handler struct {
 }
 
 func NewHandler(torrent torrentfile.SimpleTorrentFile) (*Handler, error) {
-	preconditions.CheckArgument(len(torrent.Announce) > 0)
+	preconditions.CheckArgument(len(torrent.Announce) > 0, "announce url should not be empty")
 
 	// Parse announce announceUrl
 	announceUrl, err := url.Parse(torrent.Announce)

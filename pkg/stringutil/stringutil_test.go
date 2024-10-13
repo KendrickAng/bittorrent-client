@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestSplitChunks(t *testing.T) {
+func TestChunksOfN(t *testing.T) {
 	type args struct {
 		s         string
 		chunkSize int
@@ -26,8 +26,8 @@ func TestSplitChunks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := SplitChunks(tt.args.s, tt.args.chunkSize); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("SplitChunks() = %v, want %v", got, tt.want)
+			if got := chunksOfN(tt.args.s, tt.args.chunkSize); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("chunksOfN() = %v, want %v", got, tt.want)
 			}
 		})
 	}
