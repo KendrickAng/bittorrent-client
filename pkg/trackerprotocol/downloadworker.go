@@ -4,16 +4,18 @@ import (
 	"context"
 	"errors"
 	"example.com/btclient/pkg/bittorrent"
+	"example.com/btclient/pkg/bittorrent/client"
+	"example.com/btclient/pkg/bittorrent/message"
 	"math"
 )
 
 // DownloadWorker handles the download of a single piece of data in the torrent.
 // A torrent is split into many pieces for download.
 type DownloadWorker struct {
-	client *Client
+	client *client.Client
 }
 
-func NewDownloadWorker(client *Client) *DownloadWorker {
+func NewDownloadWorker(client *client.Client) *DownloadWorker {
 	return &DownloadWorker{
 		client: client,
 	}
@@ -64,15 +66,15 @@ func (d *DownloadWorker) Start(ctx context.Context, req pieceRequest) (*pieceRes
 					return nil, err
 				}
 				switch msg.ID {
-				case MsgKeepAlive:
+				case message.MsgKeepAlive:
 					println("keep alive")
-				case MsgChoke:
+				case message.MsgChoke:
 					d.client.SetChoked(true)
-				case MsgUnchoke:
+				case message.MsgUnchoke:
 					d.client.SetChoked(false)
-				case MsgBitfield:
+				case message.MsgBitfield:
 					d.client.SetBitfield(msg.AsMsgBitfield().Bitfield)
-				case MsgPiece:
+				case message.MsgPiece:
 					piece := msg.AsMsgPiece()
 					println("piece", index, ":", begin, "to", begin+uint32(len(piece.Block)), "of total", req.pieceLength)
 					if piece.Begin != begin || piece.Index != index {

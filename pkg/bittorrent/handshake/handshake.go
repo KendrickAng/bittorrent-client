@@ -1,4 +1,4 @@
-package trackerprotocol
+package handshake
 
 import (
 	"fmt"

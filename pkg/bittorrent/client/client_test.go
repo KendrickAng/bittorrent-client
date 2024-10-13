@@ -1,7 +1,9 @@
-package trackerprotocol
+package client
 
 import (
 	"bytes"
+	"example.com/btclient/pkg/bittorrent/handshake"
+	"example.com/btclient/pkg/bittorrent/message"
 	"io"
 	"net"
 	"testing"
@@ -13,7 +15,7 @@ func TestClient_IsChoked(t *testing.T) {
 	var a1 [20]byte
 	var a2 [20]byte
 	reader, writer := net.Pipe()
-	client := NewClient(reader, writer, NewHandshaker(writer), a1, a2)
+	client := NewClient(reader, writer, handshake.NewHandshaker(writer), a1, a2)
 	defer client.Close()
 
 	// Assert
@@ -29,7 +31,7 @@ func TestClient_ReceiveUnchokeMessage(t *testing.T) {
 	reader, writer := net.Pipe()
 	writer.SetWriteDeadline(time.Now().Add(time.Minute * 3))
 	reader.SetReadDeadline(time.Now().Add(time.Minute * 3))
-	client := NewClient(reader, writer, NewHandshaker(writer), a1, a2)
+	client := NewClient(reader, writer, handshake.NewHandshaker(writer), a1, a2)
 	defer client.Close()
 
 	go func() {
@@ -51,13 +53,13 @@ func TestClient_ReceiveUnchokeMessage(t *testing.T) {
 	if actualMsgUnchoke.Encode()[0] != 5 {
 		t.Fatal("unchoke message not equal")
 	}
-	if actualMsgUnchoke.Encode()[4] != uint8(MsgUnchoke) {
+	if actualMsgUnchoke.Encode()[4] != uint8(message.MsgUnchoke) {
 		t.Fatal("unchoke message not equal")
 	}
 }
 
 func TestClient_Init(t *testing.T) {
-	// TODO test handshake and bitfield sending
+	// TODO test handshake and Bitfield sending
 }
 
 func TestClient_SendInterestedMessage(t *testing.T) {
@@ -65,7 +67,7 @@ func TestClient_SendInterestedMessage(t *testing.T) {
 	var a1 [20]byte
 	var a2 [20]byte
 	reader, writer := net.Pipe()
-	client := NewClient(reader, writer, NewHandshaker(writer), a1, a2)
+	client := NewClient(reader, writer, handshake.NewHandshaker(writer), a1, a2)
 	defer client.Close()
 
 	// Act
@@ -81,7 +83,7 @@ func TestClient_SendInterestedMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(read, []byte{0, 0, 0, 1, uint8(MsgInterested)}) {
+	if !bytes.Equal(read, []byte{0, 0, 0, 1, uint8(message.MsgInterested)}) {
 		t.Fatal("incorrect bytes")
 	}
 }
@@ -91,7 +93,7 @@ func TestClient_SendRequestMessage(t *testing.T) {
 	var a1 [20]byte
 	var a2 [20]byte
 	reader, writer := net.Pipe()
-	client := NewClient(reader, writer, NewHandshaker(writer), a1, a2)
+	client := NewClient(reader, writer, handshake.NewHandshaker(writer), a1, a2)
 	defer client.Close()
 
 	// Act
@@ -109,7 +111,7 @@ func TestClient_SendRequestMessage(t *testing.T) {
 	}
 	if !bytes.Equal(read, []byte{
 		0, 0, 0, 13,
-		uint8(MsgRequest),
+		uint8(message.MsgRequest),
 		0, 0, 0, 0,
 		0, 0, 0, 1,
 		0, 0, 0, 2}) {
@@ -122,11 +124,11 @@ func TestClient_ReceivePieceMessage(t *testing.T) {
 	var a1 [20]byte
 	var a2 [20]byte
 	reader, writer := net.Pipe()
-	client := NewClient(reader, writer, NewHandshaker(writer), a1, a2)
+	client := NewClient(reader, writer, handshake.NewHandshaker(writer), a1, a2)
 	defer client.Close()
 
 	go func() {
-		if _, err := writer.Write(MessagePiece{
+		if _, err := writer.Write(message.PieceMessage{
 			Index: 1,
 			Begin: 2,
 			Block: []byte{3, 4, 5, 6, 7, 8, 9},
@@ -154,5 +156,5 @@ func TestClient_ReceivePieceMessage(t *testing.T) {
 }
 
 func unchokeMessage() []byte {
-	return MessageUnchoke{}.Encode()
+	return message.UnchokeMessage{}.Encode()
 }

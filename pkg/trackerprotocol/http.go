@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"example.com/btclient/pkg/bittorrent/client"
+	"example.com/btclient/pkg/bittorrent/handshake"
 	"example.com/btclient/pkg/bittorrent/tracker"
 	"fmt"
 	"golang.org/x/exp/rand"
@@ -15,6 +17,7 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
+	"time"
 )
 
 const (
@@ -73,7 +76,7 @@ func (h *Handler) handleHttp(ctx context.Context) (err error) {
 	println("parsed tracker response")
 
 	// Connect to available peers
-	clientsCh := make(chan *Client, len(trackerResp.Peers))
+	clientsCh := make(chan *client.Client, len(trackerResp.Peers))
 	println("attempting connection to", len(trackerResp.Peers), "peers")
 	wg := new(sync.WaitGroup)
 	for _, peer := range trackerResp.Peers {
@@ -83,7 +86,7 @@ func (h *Handler) handleHttp(ctx context.Context) (err error) {
 			defer wg.Done()
 
 			// dial peer
-			conn, err := net.DialTimeout("tcp", peer.String(), peerDialTimeout)
+			conn, err := net.DialTimeout("tcp", peer.String(), 30*time.Second)
 			if err != nil {
 				println("error creating client for peer", peer2.String())
 				return
@@ -91,7 +94,7 @@ func (h *Handler) handleHttp(ctx context.Context) (err error) {
 			println("dialed", conn.RemoteAddr().String())
 
 			// create client to peer
-			client := NewClient(conn, conn, NewHandshaker(conn), peerID, h.torrent.InfoHash)
+			client := client.NewClient(conn, conn, handshake.NewHandshaker(conn), peerID, h.torrent.InfoHash)
 			if err := client.Init(); err != nil {
 				println("error creating client for peer", peer2.String())
 				return
@@ -105,7 +108,7 @@ func (h *Handler) handleHttp(ctx context.Context) (err error) {
 	close(clientsCh) // close channel so we don't loop over it infinitely
 
 	// Convert peers channel into peers queue
-	var clients []*Client
+	var clients []*client.Client
 	for client := range clientsCh {
 		clients = append(clients, client)
 	}

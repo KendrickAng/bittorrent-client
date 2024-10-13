@@ -1,4 +1,4 @@
-package trackerprotocol
+package message
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 
 func TestMessageUnchoke_Encode(t *testing.T) {
 	// Arrange
-	msg := MessageUnchoke{}
+	msg := UnchokeMessage{}
 
 	// Act
 	msgBytes := msg.Encode()
@@ -23,7 +23,7 @@ func TestMessageUnchoke_Encode(t *testing.T) {
 
 func TestMessageInterested_Encode(t *testing.T) {
 	// Arrange
-	msg := MessageInterested{}
+	msg := InterestedMessage{}
 
 	// Act
 	msgBytes := msg.Encode()
@@ -36,7 +36,7 @@ func TestMessageInterested_Encode(t *testing.T) {
 
 func TestMessageRequest_Encode(t *testing.T) {
 	// Arrange
-	msg := MessageRequest{
+	msg := RequestMessage{
 		Index:  1,
 		Begin:  2,
 		Length: 3,
@@ -59,7 +59,7 @@ func TestMessageRequest_Encode(t *testing.T) {
 
 func TestMessagePiece_Encode(t *testing.T) {
 	// Arrange
-	msg := MessagePiece{
+	msg := PieceMessage{
 		Index: 1,
 		Begin: 2,
 		Block: []byte{3, 4, 5, 6, 7, 8},

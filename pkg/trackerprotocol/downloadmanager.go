@@ -3,6 +3,7 @@ package trackerprotocol
 import (
 	"bytes"
 	"context"
+	"example.com/btclient/pkg/bittorrent/client"
 	"example.com/btclient/pkg/bittorrent/torrentfile"
 	"fmt"
 	"os"
@@ -20,7 +21,7 @@ const (
 
 type DownloadManager struct {
 	torrent       *torrentfile.SimpleTorrentFile
-	clients       []*Client
+	clients       []*client.Client
 	reconstructer *Reconstructer
 	// Channel for receiving pieces of the downloaded torrent.
 	pieceResultChannel chan *pieceResult
@@ -43,7 +44,7 @@ type pieceResult struct {
 	hash  [20]byte
 }
 
-func NewDownloadManager(torrent *torrentfile.SimpleTorrentFile, clients []*Client) (*DownloadManager, error) {
+func NewDownloadManager(torrent *torrentfile.SimpleTorrentFile, clients []*client.Client) (*DownloadManager, error) {
 	return &DownloadManager{
 		torrent: torrent,
 		clients: clients,
@@ -70,22 +71,22 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 		cancel()
 	}()
 
-	for _, client := range d.clients {
-		go func(ctx context.Context, client *Client) {
+	for _, btclient := range d.clients {
+		go func(ctx context.Context, btclient *client.Client) {
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				case downloadTask := <-downloadTasksChan:
 					// skip if client doesn't have the piece
-					if !client.bitfield.HasBit(downloadTask.pieceIndex) {
+					if !btclient.Bitfield.HasBit(downloadTask.pieceIndex) {
 						downloadTasksChan <- downloadTask
 						time.Sleep(1 * time.Second) // prevent starvation
 						continue
 					}
 
 					// have client download the piece
-					result, err := NewDownloadWorker(client).Start(ctx, downloadTask)
+					result, err := NewDownloadWorker(btclient).Start(ctx, downloadTask)
 					if err != nil {
 						downloadTasksChan <- downloadTask
 					} else if !bytes.Equal(d.torrent.PieceHashes[result.index][:], result.hash[:]) {
@@ -98,7 +99,7 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 					}
 				}
 			}
-		}(ctx, client)
+		}(ctx, btclient)
 	}
 
 	// TODO save file to disk once download is completed

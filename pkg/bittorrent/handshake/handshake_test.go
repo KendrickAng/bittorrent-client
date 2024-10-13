@@ -1,7 +1,8 @@
-package trackerprotocol
+package handshake
 
 import (
 	"bytes"
+	"example.com/btclient/pkg/trackerprotocol"
 	"io"
 	"net"
 	"testing"
@@ -12,11 +13,11 @@ func TestHandshake_SendHandshake(t *testing.T) {
 	reader, writer := net.Pipe()
 	handshaker := NewHandshaker(writer)
 
-	peerId, err := random20Bytes()
+	peerId, err := trackerprotocol.random20Bytes()
 	if err != nil {
 		t.Fatal(err)
 	}
-	infoHash, err := random20Bytes()
+	infoHash, err := trackerprotocol.random20Bytes()
 	if err != nil {
 		t.Fatal(err)
 	}

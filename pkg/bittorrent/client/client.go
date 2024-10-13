@@ -1,34 +1,31 @@
-package trackerprotocol
+package client
 
 import (
 	"encoding/binary"
 	"errors"
 	"example.com/btclient/pkg/bittorrent"
+	"example.com/btclient/pkg/bittorrent/handshake"
+	"example.com/btclient/pkg/bittorrent/message"
 	"fmt"
 	"io"
 	"net"
-	"time"
-)
-
-const (
-	peerDialTimeout = 30 * time.Second
 )
 
 // Client stores the state of a single client connection to a single peer.
 type Client struct {
 	readConn     net.Conn
 	writeConn    net.Conn
-	handshaker   *Handshaker
+	handshaker   *handshake.Handshaker
 	peerID       [20]byte
 	infoHash     [20]byte
-	handshake    *Handshake
-	bitfield     bittorrent.Bitfield
+	handshake    *handshake.Handshake
+	Bitfield     bittorrent.Bitfield
 	isChoked     bool
 	isInterested bool
 }
 
 func NewClient(readConn net.Conn, writeConn net.Conn,
-	handshaker *Handshaker,
+	handshaker *handshake.Handshaker,
 	peerID [20]byte,
 	infoHash [20]byte) *Client {
 
@@ -39,7 +36,7 @@ func NewClient(readConn net.Conn, writeConn net.Conn,
 		peerID:     peerID,
 		infoHash:   infoHash,
 		handshake:  nil,
-		bitfield:   nil,
+		Bitfield:   nil,
 		// connections start out choked and not interested.
 		isChoked:     true,
 		isInterested: false,
@@ -57,15 +54,15 @@ func (c *Client) Init() error {
 	if err != nil {
 		return err
 	}
-	println("bitfield received", c.String(), bf)
+	println("Bitfield received", c.String(), bf)
 
-	// TODO throw an error if the bitfield is incorrect.
-	// From the docs: A bitfield of the wrong length is considered an error.
+	// TODO throw an error if the Bitfield is incorrect.
+	// From the docs: A Bitfield of the wrong length is considered an error.
 	// Clients should drop the connection if they receive bitfields that are not of the correct size,
-	// or if the bitfield has any of the spare bits set.
+	// or if the Bitfield has any of the spare bits set.
 
 	c.handshake = handshake
-	c.bitfield = bf.Bitfield
+	c.Bitfield = bf.Bitfield
 	return nil
 }
 
@@ -78,24 +75,24 @@ func (c *Client) SetChoked(isChoked bool) {
 }
 
 func (c *Client) GetBitfield() bittorrent.Bitfield {
-	return c.bitfield
+	return c.Bitfield
 }
 
 func (c *Client) SetBitfield(bf bittorrent.Bitfield) {
-	c.bitfield = bf
+	c.Bitfield = bf
 }
 
-func (c *Client) ReceiveMessage() (*Message, error) {
-	return Deserialize(c.readConn)
+func (c *Client) ReceiveMessage() (*message.Message, error) {
+	return message.Deserialize(c.readConn)
 }
 
-func (c *Client) ReceiveUnchokeMessage() (*MessageUnchoke, error) {
-	_, err := receiveMessageOfType(c.readConn, MsgUnchoke)
-	return &MessageUnchoke{}, err
+func (c *Client) ReceiveUnchokeMessage() (*message.UnchokeMessage, error) {
+	_, err := receiveMessageOfType(c.readConn, message.MsgUnchoke)
+	return &message.UnchokeMessage{}, err
 }
 
 func (c *Client) SendInterestedMessage() error {
-	_, err := c.writeConn.Write(MessageInterested{}.Encode())
+	_, err := c.writeConn.Write(message.InterestedMessage{}.Encode())
 	return err
 }
 
@@ -104,7 +101,7 @@ func (c *Client) SendInterestedMessage() error {
 // begin: integer specifying the zero-based byte offset within the piece
 // requestLength: integer specifying the requested requestLength.
 func (c *Client) SendRequestMessage(index, begin, length uint32) error {
-	b := MessageRequest{
+	b := message.RequestMessage{
 		Index:  index,
 		Begin:  begin,
 		Length: length,
@@ -117,8 +114,8 @@ func (c *Client) SendRequestMessage(index, begin, length uint32) error {
 }
 
 // TODO we can probably remove this and the other Receive methods.
-func (c *Client) ReceivePieceMessage() (*MessagePiece, error) {
-	msg, err := receiveMessageOfType(c.readConn, MsgPiece)
+func (c *Client) ReceivePieceMessage() (*message.PieceMessage, error) {
+	msg, err := receiveMessageOfType(c.readConn, message.MsgPiece)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +124,7 @@ func (c *Client) ReceivePieceMessage() (*MessagePiece, error) {
 	pieceBegin := binary.BigEndian.Uint32(msg.Payload[4:8])
 	block := msg.Payload[8:]
 
-	return &MessagePiece{
+	return &message.PieceMessage{
 		Index: pieceIndex,
 		Begin: pieceBegin,
 		Block: block,
@@ -168,7 +165,7 @@ func (c *Client) readBytes(n int) ([]byte, error) {
 	return buf, nil
 }
 
-func (c *Client) doHandshake(peerID [20]byte, infoHash [20]byte) (*Handshake, error) {
+func (c *Client) doHandshake(peerID [20]byte, infoHash [20]byte) (*handshake.Handshake, error) {
 	if err := c.handshaker.SendHandshake(peerID, infoHash); err != nil {
 		return nil, err
 	}
@@ -186,11 +183,11 @@ func (c *Client) doHandshake(peerID [20]byte, infoHash [20]byte) (*Handshake, er
 	return handshake, nil
 }
 
-func receiveMessage(conn net.Conn) (*Message, error) {
-	return Deserialize(conn)
+func receiveMessage(conn net.Conn) (*message.Message, error) {
+	return message.Deserialize(conn)
 }
 
-func receiveMessageOfType(conn net.Conn, id MessageID) (*Message, error) {
+func receiveMessageOfType(conn net.Conn, id message.Type) (*message.Message, error) {
 	msg, err := receiveMessage(conn)
 	if err != nil {
 		return nil, err
@@ -203,10 +200,10 @@ func receiveMessageOfType(conn net.Conn, id MessageID) (*Message, error) {
 	return msg, nil
 }
 
-func receiveBitfield(conn net.Conn) (*MessageBitfield, error) {
-	msg, err := receiveMessageOfType(conn, MsgBitfield)
+func receiveBitfield(conn net.Conn) (*message.BitfieldMessage, error) {
+	msg, err := receiveMessageOfType(conn, message.MsgBitfield)
 	if err != nil {
 		return nil, err
 	}
-	return &MessageBitfield{Bitfield: msg.Payload}, nil
+	return &message.BitfieldMessage{Bitfield: msg.Payload}, nil
 }
