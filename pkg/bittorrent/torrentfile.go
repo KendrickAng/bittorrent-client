@@ -1,4 +1,4 @@
-package bencodeutil
+package bittorrent
 
 import (
 	"bytes"

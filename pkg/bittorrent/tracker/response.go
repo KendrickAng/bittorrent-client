@@ -1,18 +1,14 @@
-package bencodeutil
+package tracker
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"github.com/jackpal/bencode-go"
 	"net"
 )
 
-const (
-	compactPeerBytesLen = 6
-)
-
-type TrackerResponse struct {
+type Response struct {
 	// Human-readable error message as to why the request failed.
 	FailureReason string
 
@@ -44,9 +40,10 @@ type rawTrackerResponse struct {
 	Peers string `bencode:"peers"`
 }
 
-func UnmarshalTrackerResponse(b []byte) (*TrackerResponse, error) {
+// ReadResponse reads and returns a BitTorrent tracker response from r.
+func ReadResponse(r *bufio.Reader) (*Response, error) {
 	var rawResponse rawTrackerResponse
-	if err := bencode.Unmarshal(bytes.NewReader(b), &rawResponse); err != nil {
+	if err := bencode.Unmarshal(r, &rawResponse); err != nil {
 		return nil, err
 	}
 
@@ -60,11 +57,11 @@ func UnmarshalTrackerResponse(b []byte) (*TrackerResponse, error) {
 	for i := 0; i < n; i++ {
 		start := i * compactPeerBytesLen
 		end := start + compactPeerBytesLen
-		peers[i].IP = net.IP(rawPeers[start : start+4])
+		peers[i].IP = rawPeers[start : start+4] // 4 bytes for integer
 		peers[i].Port = binary.BigEndian.Uint16(rawPeers[start+4 : end])
 	}
 
-	return &TrackerResponse{
+	return &Response{
 		FailureReason:   rawResponse.FailureReason,
 		RefreshInterval: rawResponse.Interval,
 		Peers:           peers,

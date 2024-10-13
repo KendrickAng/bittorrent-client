@@ -1,9 +1,11 @@
 package trackerprotocol
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
-	"example.com/btclient/pkg/bencodeutil"
+	"example.com/btclient/pkg/bittorrent/tracker"
 	"example.com/btclient/pkg/closelogger"
 	"fmt"
 	"golang.org/x/exp/rand"
@@ -57,7 +59,7 @@ func (h *Handler) handleHttp(ctx context.Context) error {
 	println("received tracker response")
 
 	// Parse tracker response
-	trackerResp, err := bencodeutil.UnmarshalTrackerResponse(body)
+	trackerResp, err := tracker.ReadResponse(bufio.NewReader(bytes.NewReader(body)))
 	if err != nil {
 		return err
 	}
@@ -73,7 +75,7 @@ func (h *Handler) handleHttp(ctx context.Context) error {
 	for _, peer := range trackerResp.Peers {
 		wg.Add(1)
 
-		go func(peer2 bencodeutil.Peer) {
+		go func(peer2 tracker.Peer) {
 			defer wg.Done()
 
 			// dial peer

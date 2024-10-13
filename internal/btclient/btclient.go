@@ -2,7 +2,7 @@ package btclient
 
 import (
 	"context"
-	"example.com/btclient/pkg/bencodeutil"
+	"example.com/btclient/pkg/bittorrent"
 	"example.com/btclient/pkg/closelogger"
 	"example.com/btclient/pkg/trackerprotocol"
 	"os"
@@ -28,7 +28,7 @@ func Run(ctx context.Context) error {
 	defer closelogger.CloseOrLog(file, flags.TorrentFileName)
 
 	// Decode bencoded file
-	bencodedData, err := bencodeutil.Unmarshal(file)
+	bencodedData, err := bittorrent.Unmarshal(file)
 	if err != nil {
 		return err
 	}
