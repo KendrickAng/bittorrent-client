@@ -3,7 +3,7 @@ package trackerprotocol
 import (
 	"context"
 	"errors"
-	"example.com/btclient/pkg/bittorrent"
+	"example.com/btclient/pkg/bittorrent/torrentfile"
 	"example.com/btclient/pkg/preconditions"
 	"example.com/btclient/pkg/udpprotocol"
 	"fmt"
@@ -18,13 +18,13 @@ const (
 
 type Handler struct {
 	announceUrl *url.URL
-	torrent     *bittorrent.SimpleTorrentFile
+	torrent     *torrentfile.SimpleTorrentFile
 
 	// HTTP
 	httpListener net.Listener
 }
 
-func NewHandler(torrent bittorrent.SimpleTorrentFile) (*Handler, error) {
+func NewHandler(torrent torrentfile.SimpleTorrentFile) (*Handler, error) {
 	preconditions.CheckArgument(len(torrent.Announce) > 0)
 
 	// Parse announce announceUrl

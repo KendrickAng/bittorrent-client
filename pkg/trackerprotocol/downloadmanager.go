@@ -3,7 +3,7 @@ package trackerprotocol
 import (
 	"bytes"
 	"context"
-	"example.com/btclient/pkg/bittorrent"
+	"example.com/btclient/pkg/bittorrent/torrentfile"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,7 +19,7 @@ const (
 )
 
 type DownloadManager struct {
-	torrent       *bittorrent.SimpleTorrentFile
+	torrent       *torrentfile.SimpleTorrentFile
 	clients       []*Client
 	reconstructer *Reconstructer
 	// Channel for receiving pieces of the downloaded torrent.
@@ -43,7 +43,7 @@ type pieceResult struct {
 	hash  [20]byte
 }
 
-func NewDownloadManager(torrent *bittorrent.SimpleTorrentFile, clients []*Client) (*DownloadManager, error) {
+func NewDownloadManager(torrent *torrentfile.SimpleTorrentFile, clients []*Client) (*DownloadManager, error) {
 	return &DownloadManager{
 		torrent: torrent,
 		clients: clients,
@@ -143,7 +143,7 @@ func (d *DownloadManager) Start(ctx context.Context) error {
 	return nil
 }
 
-func createDownloadTasks(torrent *bittorrent.SimpleTorrentFile) []pieceRequest {
+func createDownloadTasks(torrent *torrentfile.SimpleTorrentFile) []pieceRequest {
 	var downloadTasks []pieceRequest
 
 	// TODO: this logic should be tested

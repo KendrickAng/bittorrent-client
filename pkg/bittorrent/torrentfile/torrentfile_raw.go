@@ -1,4 +1,4 @@
-package bittorrent
+package torrentfile
 
 import (
 	"bytes"
@@ -10,6 +10,7 @@ import (
 	"io"
 )
 
+// TorrentFile represents a decoded Metainfo (.torrent) file which was originally bencoded.
 type TorrentFile struct {
 	// REQUIRED. The announce URL of the tracker.
 	Announce string `bencode:"announce"`
@@ -34,6 +35,7 @@ type TorrentFile struct {
 	Encoding string `bencode:"encoding"`
 }
 
+// Info represents the info dictionary containing information about the torrent data.
 type Info struct {
 	// CONFIGURATIONS FOR BOTH SINGLE/MULTI FILE MODE.
 
@@ -66,6 +68,7 @@ type Info struct {
 	Files []Files `bencode:"files,omitempty"`
 }
 
+// Files represents a set of files that go in a directory structure.
 type Files struct {
 	// REQUIRED. Length of the file in bytes.
 	Length int `bencode:"length"`
@@ -77,7 +80,8 @@ type Files struct {
 	MD5Sum string `bencode:"md5sum"`
 }
 
-func Unmarshal(r io.Reader) (TorrentFile, error) {
+// ReadTorrentFile reads and returns a [TorrentFile] from r.
+func ReadTorrentFile(r io.Reader) (TorrentFile, error) {
 	var data TorrentFile
 
 	if err := bencode.Unmarshal(r, &data); err != nil {
@@ -91,20 +95,7 @@ func Unmarshal(r io.Reader) (TorrentFile, error) {
 	return data, nil
 }
 
-type SimpleTorrentFile struct {
-	Announce string
-	// SHA-1 hash of the entire bencoded info dict.
-	InfoHash [20]byte
-	// Hash of each piece.
-	PieceHashes [][20]byte
-	// Number of bytes in each piece.
-	PieceLength int
-	// Length of the file in bytes.
-	Length int
-	// May be empty in multi-file mode.
-	Name string
-}
-
+// Simplify flattens [TorrentFile] and returns a [SimpleTorrentFile].
 func (t *TorrentFile) Simplify() (SimpleTorrentFile, error) {
 	// SHA-1 hash of info dict
 	buf := new(bytes.Buffer)
@@ -129,6 +120,7 @@ func (t *TorrentFile) Simplify() (SimpleTorrentFile, error) {
 	}, nil
 }
 
+// Validate performs nonblocking validations on [TorrentFile].
 func (t *TorrentFile) Validate() error {
 	if t.Announce == "" {
 		return errors.New("torrent file has no announce")
