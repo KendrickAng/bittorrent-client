@@ -3,7 +3,7 @@ package torrentfile
 import (
 	"bytes"
 	"errors"
-	"example.com/btclient/pkg/hashutil"
+	"example.com/btclient/pkg/bittorrent"
 	"example.com/btclient/pkg/stringutil"
 	"fmt"
 	"github.com/jackpal/bencode-go"
@@ -102,7 +102,7 @@ func (t *TorrentFile) Simplify() (SimpleTorrentFile, error) {
 	if err := bencode.Marshal(buf, t.Info); err != nil {
 		return SimpleTorrentFile{}, err
 	}
-	bufHash := hashutil.BTHash(buf.Bytes())
+	bufHash := bittorrent.Hash(buf.Bytes())
 
 	// Split pieces into pieces of 20 bytes each
 	sha1Chunks, err := stringutil.SplitChunksOf20(t.Info.Pieces)

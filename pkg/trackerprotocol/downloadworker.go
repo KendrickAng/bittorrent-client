@@ -3,7 +3,7 @@ package trackerprotocol
 import (
 	"context"
 	"errors"
-	"example.com/btclient/pkg/hashutil"
+	"example.com/btclient/pkg/bittorrent"
 	"math"
 )
 
@@ -95,6 +95,6 @@ func (d *DownloadWorker) Start(ctx context.Context, req pieceRequest) (*pieceRes
 	return &pieceResult{
 		piece: finalBlocks,
 		index: req.pieceIndex,
-		hash:  hashutil.BTHash(finalBlocks),
+		hash:  bittorrent.Hash(finalBlocks),
 	}, nil
 }
