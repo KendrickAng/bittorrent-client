@@ -6,6 +6,7 @@ import (
 	"example.com/btclient/pkg/bittorrent"
 	"example.com/btclient/pkg/bittorrent/handshake"
 	"example.com/btclient/pkg/bittorrent/message"
+	"example.com/btclient/pkg/preconditions"
 	"fmt"
 	"io"
 	"net"
@@ -16,6 +17,7 @@ type Client struct {
 	readConn     net.Conn
 	writeConn    net.Conn
 	handshaker   *handshake.Handshaker
+	extensions   bittorrent.ExtensionBits
 	peerID       [20]byte
 	infoHash     [20]byte
 	handshake    *handshake.Handshake
@@ -26,6 +28,7 @@ type Client struct {
 
 func NewClient(readConn net.Conn, writeConn net.Conn,
 	handshaker *handshake.Handshaker,
+	extensionBits bittorrent.ExtensionBits,
 	peerID [20]byte,
 	infoHash [20]byte) *Client {
 
@@ -33,6 +36,7 @@ func NewClient(readConn net.Conn, writeConn net.Conn,
 		readConn:   readConn,
 		writeConn:  writeConn,
 		handshaker: handshaker,
+		extensions: extensionBits,
 		peerID:     peerID,
 		infoHash:   infoHash,
 		handshake:  nil,
@@ -44,7 +48,7 @@ func NewClient(readConn net.Conn, writeConn net.Conn,
 }
 
 func (c *Client) Init() error {
-	handshake, err := c.doHandshake(c.peerID, c.infoHash)
+	hs, err := c.doHandshake(c.extensions, c.peerID, c.infoHash)
 	if err != nil {
 		return err
 	}
@@ -56,13 +60,25 @@ func (c *Client) Init() error {
 	}
 	println("Bitfield received", c.String(), bf)
 
-	// TODO throw an error if the Bitfield is incorrect.
-	// From the docs: A Bitfield of the wrong length is considered an error.
-	// Clients should drop the connection if they receive bitfields that are not of the correct size,
-	// or if the Bitfield has any of the spare bits set.
+	bitfield := bf.Bitfield
+	if err := bitfield.Validate(); err != nil {
+		return err
+	}
 
-	c.handshake = handshake
-	c.Bitfield = bf.Bitfield
+	if c.extensions.HasExtensionProtocolBit() && !hs.Extensions.HasExtensionProtocolBit() {
+		return errors.New("extension protocol selected, but peer client does not support extension protocol")
+	}
+
+	if hs.Extensions.HasExtensionProtocolBit() {
+		extMsg, err := c.doExtensionHandshake(hs.Extensions)
+		if err != nil {
+			return err
+		}
+		println("got ext msg", extMsg)
+	}
+
+	c.handshake = hs
+	c.Bitfield = bitfield
 	return nil
 }
 
@@ -165,22 +181,45 @@ func (c *Client) readBytes(n int) ([]byte, error) {
 	return buf, nil
 }
 
-func (c *Client) doHandshake(peerID [20]byte, infoHash [20]byte) (*handshake.Handshake, error) {
-	if err := c.handshaker.SendHandshake(peerID, infoHash); err != nil {
+// TODO Move this into handshake.go
+func (c *Client) doHandshake(extensionBits bittorrent.ExtensionBits,
+	peerID [20]byte,
+	infoHash [20]byte,
+) (*handshake.Handshake, error) {
+
+	if err := c.handshaker.SendHandshake(extensionBits, peerID, infoHash); err != nil {
 		return nil, err
 	}
 
-	handshake, err := c.handshaker.ReceiveHandshake()
+	hs, err := c.handshaker.ReceiveHandshake()
 	if err != nil {
 		return nil, err
 	}
 
 	// If both sides don't send the same info hash value, sever the connection.
-	if infoHash != handshake.InfoHash {
+	if infoHash != hs.InfoHash {
 		return nil, errors.Join(errors.New("different info hash value"), c.Close())
 	}
 
-	return handshake, nil
+	return hs, nil
+}
+
+func (c *Client) doExtensionHandshake(ext bittorrent.ExtensionBits) (*message.ExtendedMessage, error) {
+	preconditions.CheckArgument(ext.HasExtensionProtocolBit(), "no extension protocol bit")
+
+	// TODO If the extension protocol is supported, the extension handshake message
+	// should be send immediately after the standard BT handshake.
+	// It is valid to send the handshake message more than once during the connection's lifetime.
+	if err := c.handshaker.SendExtensionHandshake(); err != nil {
+		return nil, err
+	}
+
+	extMsg, err := c.handshaker.ReceiveExtensionHandshake()
+	if err != nil {
+		return nil, err
+	}
+
+	return extMsg, nil
 }
 
 func receiveMessage(conn net.Conn) (*message.Message, error) {

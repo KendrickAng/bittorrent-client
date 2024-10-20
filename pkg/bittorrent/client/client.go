@@ -3,26 +3,19 @@ package client
 import (
 	"context"
 	"errors"
+	"example.com/btclient/pkg/bittorrent/peer"
 	"example.com/btclient/pkg/bittorrent/torrentfile"
 	"example.com/btclient/pkg/bittorrent/tracker"
-	"fmt"
-	"time"
-)
-
-const (
-	dialTimeout = 30 * time.Second
 )
 
 // Client represents a BitTorrent client that downloads a piece of data specified by a Metainfo (.torrent) file.
 //
 // A Client is higher-level than [DataTransfer] and handles details like torrent file reading and validation.
 type Client struct {
-	torrent         *torrentfile.SimpleTorrentFile
-	tracker         tracker.Tracker
-	dataTransferrer DataTransfer
-}
-
-type Config struct {
+	torrent        *torrentfile.SimpleTorrentFile
+	tracker        tracker.Tracker
+	dataTransfer   DataTransfer
+	connectionPool *peer.Pool
 }
 
 // DataTransfer is an interface that represents the ability to download a torrent with a particular schema.
@@ -33,7 +26,7 @@ type DataTransfer interface {
 }
 
 // TODO refactor this to accept a io.Reader.
-func NewClient(torrent torrentfile.SimpleTorrentFile) (*Client, error) {
+func NewClient(torrent torrentfile.SimpleTorrentFile, connPool *peer.Pool) (*Client, error) {
 	if len(torrent.PieceHashes) <= 0 {
 		return nil, errors.New("torrent should have pieces to download")
 	}
@@ -41,20 +34,11 @@ func NewClient(torrent torrentfile.SimpleTorrentFile) (*Client, error) {
 		return nil, errors.New("torrent length should be greater than zero")
 	}
 
-	return &Client{torrent: &torrent}, nil
+	return &Client{torrent: &torrent, connectionPool: connPool}, nil
 }
 
 func (h *Client) Handle(ctx context.Context) (*Response, error) {
-	switch scheme := h.torrent.Announce.Scheme; scheme {
-	case "http":
-		h.tracker = tracker.DefaultHttpClient
-		h.dataTransferrer = &TcpClient{Client: *h}
-		return h.dataTransferrer.Download(ctx, h.torrent)
-	case "udp":
-		panic("udp scheme is not fully supported yet")
-	default:
-		panic(fmt.Errorf("unsupported scheme: %s", scheme))
-	}
+	return h.dataTransfer.Download(ctx, h.torrent)
 }
 
 func (h *Client) Close() {

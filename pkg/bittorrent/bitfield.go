@@ -23,6 +23,14 @@ func (b Bitfield) SetBit(bitIdx int) {
 	b[byteIdx] |= 1 << (7 - bitOffset)
 }
 
+func (b Bitfield) Validate() error {
+	// TODO throw an error if the Bitfield is incorrect.
+	// From the docs: A Bitfield of the wrong length is considered an error.
+	// Clients should drop the connection if they receive bitfields that are not of the correct size,
+	// or if the Bitfield has any of the spare bits set.
+	return nil
+}
+
 func (b Bitfield) String() string {
 	var s []string
 	for _, bb := range b {

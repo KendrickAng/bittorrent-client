@@ -20,7 +20,7 @@ type TorrentFile struct {
 	Info Info `bencode:"info"`
 
 	// TODO: Add support for this (https://www.bittorrent.org/beps/bep_0012.html).
-	// OPTIONAL. Extension to the official specification for Announce.
+	// OPTIONAL. extension to the official specification for Announce.
 	AnnounceList [][]string `bencode:"announce-list"`
 
 	// OPTIONAL. Creation time of the torrent, in standard UNIX epoch format.

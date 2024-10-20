@@ -1,29 +1,36 @@
 package btclient
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"strings"
 )
 
 var (
-	flagTorrent = flag.String("torrent", "tears-of-steel.torrent",
+	flagTorrent = flag.String("torrent", "",
 		"The absolute path to the .torrent file of the torrent to download, e.g. 'mymovie.torrent'.")
+	flagMagnet = flag.String("magnet", "",
+		"The absolute path to the file containing the magnet link to download.")
 )
 
 type Flags struct {
 	TorrentFileName string
+	MagnetFileName  string
 }
 
 func GetFlags() (Flags, error) {
 	// Retrieve flags
 	flags := Flags{
 		TorrentFileName: strings.TrimSpace(*flagTorrent),
+		MagnetFileName:  strings.TrimSpace(*flagMagnet),
 	}
 
-	// Parse flags
-	if !strings.HasSuffix(flags.TorrentFileName, ".torrent") {
-		return Flags{}, fmt.Errorf("file must end with .torrent, got %s", flags.TorrentFileName)
+	if flags.MagnetFileName == "" && flags.TorrentFileName == "" {
+		return Flags{}, errors.New("--torrent or --magnet is required")
+	}
+
+	if flags.TorrentFileName != "" && flags.MagnetFileName != "" {
+		return Flags{}, errors.New("only one of --torrent and --magnet is accepted")
 	}
 
 	return flags, nil

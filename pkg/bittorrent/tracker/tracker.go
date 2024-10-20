@@ -3,7 +3,7 @@
 package tracker
 
 import (
-	"example.com/btclient/pkg/bittorrent/torrentfile"
+	"net/url"
 )
 
 const (
@@ -13,5 +13,12 @@ const (
 )
 
 type Tracker interface {
-	FetchTorrentMetadata(torrent *torrentfile.SimpleTorrentFile) (*Response, error)
+	FetchTorrentMetadata(request FetchTorrentMetadataRequest) (*Response, error)
+}
+
+type FetchTorrentMetadataRequest struct {
+	TrackerUrl *url.URL
+	InfoHash   [20]byte
+	PeerID     [20]byte
+	Left       int
 }

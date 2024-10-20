@@ -1,6 +1,8 @@
 package handshake
 
 import (
+	"example.com/btclient/pkg/bittorrent"
+	"example.com/btclient/pkg/bittorrent/message"
 	"fmt"
 	"io"
 	"net"
@@ -18,6 +20,7 @@ type Handshake struct {
 	ProtocolID string
 	PeerID     [20]byte
 	InfoHash   [20]byte
+	Extensions bittorrent.ExtensionBits
 }
 
 func NewHandshaker(conn net.Conn) *Handshaker {
@@ -26,8 +29,11 @@ func NewHandshaker(conn net.Conn) *Handshaker {
 	}
 }
 
-func (h *Handshaker) SendHandshake(peerID [20]byte, infoHash [20]byte) error {
-	handshake := buildHandshake(btProtocolID, peerID, infoHash)
+func (h *Handshaker) SendHandshake(extensionBits bittorrent.ExtensionBits,
+	peerID [20]byte,
+	infoHash [20]byte) error {
+
+	handshake := buildHandshake(btProtocolID, extensionBits, peerID, infoHash)
 	_, err := h.peerConn.Write(handshake)
 	return err
 }
@@ -57,7 +63,7 @@ func (h *Handshaker) ReceiveHandshake() (*Handshake, error) {
 		return nil, err
 	}
 
-	var extensionBits [20]byte
+	var extensionBits bittorrent.ExtensionBits
 	var infoHash [20]byte
 	var peerID [20]byte
 	copy(extensionBits[:], buf[:8])
@@ -68,15 +74,51 @@ func (h *Handshaker) ReceiveHandshake() (*Handshake, error) {
 		ProtocolID: string(protocolIDBuffer),
 		PeerID:     peerID,
 		InfoHash:   infoHash,
+		Extensions: extensionBits,
 	}, nil
 }
 
-func buildHandshake(protocolID string, peerID [20]byte, bencodedInfoHash [20]byte) []byte {
+func (h *Handshaker) SendExtensionHandshake() error {
+	msg := message.ExtendedMessage{
+		ExtendedMessageID: message.ExtendedMessageIDHandshake,
+		ExtensionHeader: message.ExtensionHeader{
+			SupportedExtensionMessages: map[string]int{
+				"ut_metadata": int(message.ExtendedMessageIDMagnet),
+			},
+		},
+	}
+
+	b, err := msg.Encode()
+	if err != nil {
+		return err
+	}
+
+	_, err = h.peerConn.Write(b)
+	return err
+}
+
+func (h *Handshaker) ReceiveExtensionHandshake() (*message.ExtendedMessage, error) {
+	msg, err := message.Deserialize(h.peerConn)
+	if err != nil {
+		return nil, err
+	} else if msg.ID != message.MsgExtended {
+		return nil, fmt.Errorf("expected MsgExtended, got %s", msg.ID)
+	}
+
+	return message.ExtendedMessage{}.Decode(msg)
+}
+
+func buildHandshake(protocolID string,
+	extensionBits bittorrent.ExtensionBits,
+	peerID [20]byte,
+	bencodedInfoHash [20]byte,
+) []byte {
+
 	buf := make([]byte, len(protocolID)+49)
 	buf[0] = byte(len(protocolID))
 	ptr := 1 // first byte taken by '19'
 	ptr += copy(buf[ptr:], protocolID)
-	ptr += copy(buf[ptr:], make([]byte, 8))
+	ptr += copy(buf[ptr:], extensionBits[:])
 	ptr += copy(buf[ptr:], bencodedInfoHash[:])
 	ptr += copy(buf[ptr:], peerID[:])
 	return buf

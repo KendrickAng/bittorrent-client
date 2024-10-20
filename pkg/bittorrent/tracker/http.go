@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"example.com/btclient/pkg/bittorrent/torrentfile"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -22,17 +22,24 @@ var (
 
 type HttpClient struct{}
 
-func (h *HttpClient) FetchTorrentMetadata(torrent *torrentfile.SimpleTorrentFile) (*Response, error) {
-	trackerResponse, err := fetchTorrentMetadataFromTracker(torrent)
+func (h *HttpClient) FetchTorrentMetadata(req FetchTorrentMetadataRequest) (*Response, error) {
+	if req.TrackerUrl.Scheme != "http" {
+		return nil, fmt.Errorf("only http is supported, got scheme %s", req.TrackerUrl.Scheme)
+	}
+
+	trackerResponse, err := fetchTorrentMetadataFromTracker(req.TrackerUrl, req.InfoHash, req.PeerID, req.Left)
 	if err != nil {
 		return nil, err
 	}
+
 	return readResponse(bufio.NewReader(bytes.NewReader(trackerResponse)))
 }
 
-func fetchTorrentMetadataFromTracker(torrent *torrentfile.SimpleTorrentFile) (data []byte, error error) {
+func fetchTorrentMetadataFromTracker(trackerUrl *url.URL,
+	infoHash, peerID [20]byte, left int) (data []byte, error error) {
+
 	for port := minTrackerPort; port <= maxTrackerPort; port++ {
-		trackerUrl := buildTrackerURL(torrent, port)
+		trackerUrl := buildTrackerURL(trackerUrl, infoHash, peerID, left, port)
 
 		// Send GET request to tracker
 		resp, err := http.Get(trackerUrl.String())
@@ -57,16 +64,22 @@ func fetchTorrentMetadataFromTracker(torrent *torrentfile.SimpleTorrentFile) (da
 	return nil, errors.New("failed to query tracker")
 }
 
-func buildTrackerURL(torrent *torrentfile.SimpleTorrentFile, port int) *url.URL {
-	announceUrlCopy := *torrent.Announce
+func buildTrackerURL(trackerUrl *url.URL,
+	infoHash [20]byte,
+	peerID [20]byte,
+	left int,
+	port int,
+) *url.URL {
+
+	announceUrlCopy := *trackerUrl
 	params := url.Values{
-		"info_hash":  []string{string(torrent.InfoHash[:])},
-		"peer_id":    []string{string(torrent.PeerID[:])},
+		"info_hash":  []string{string(infoHash[:])},
+		"peer_id":    []string{string(peerID[:])},
 		"port":       []string{strconv.Itoa(port)},
 		"uploaded":   []string{"0"},
 		"downloaded": []string{"0"},
 		"compact":    []string{"1"},
-		"left":       []string{strconv.Itoa(torrent.Length)},
+		"left":       []string{strconv.Itoa(left)},
 	}
 	announceUrlCopy.RawQuery = params.Encode()
 	return &announceUrlCopy

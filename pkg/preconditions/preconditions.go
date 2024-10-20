@@ -16,3 +16,7 @@ func CheckArgumentf(expr bool, format string, args ...any) {
 		panic(fmt.Sprintf(format, args...))
 	}
 }
+
+func Xor(exprA bool, exprB bool) bool {
+	return !(exprA && exprB) && (exprA || exprB)
+}

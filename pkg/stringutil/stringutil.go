@@ -36,17 +36,22 @@ func chunksOfN(s string, chunkSize int) []string {
 	return chunks
 }
 
-// Random20Bytes generates a random byte slice of 20 bytes.
+// Random20Bytes generates a random byte array of 20 bytes.
 func Random20Bytes() ([20]byte, error) {
-	var bb [20]byte
-
 	b, err := randomBytes(20)
 	if err != nil {
-		return bb, err
+		return [20]byte{}, err
 	}
+	return [20]byte(b), nil
+}
 
-	copy(bb[:], b)
-	return bb, nil
+// Random8Bytes generates a random byte array of 8 bytes.
+func Random8Bytes() ([8]byte, error) {
+	b, err := randomBytes(8)
+	if err != nil {
+		return [8]byte{}, err
+	}
+	return [8]byte(b), nil
 }
 
 func randomBytes(n int) ([]byte, error) {

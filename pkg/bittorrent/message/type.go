@@ -12,6 +12,7 @@ const (
 	MsgRequest       Type = 6
 	MsgPiece         Type = 7
 	MsgCancel        Type = 8
+	MsgExtended      Type = 20
 	MsgKeepAlive     Type = 100 // arbitrary
 )
 

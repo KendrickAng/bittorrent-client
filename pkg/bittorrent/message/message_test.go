@@ -2,6 +2,9 @@ package message
 
 import (
 	"bytes"
+	"fmt"
+	"github.com/jackpal/bencode-go"
+	"reflect"
 	"testing"
 )
 
@@ -78,5 +81,71 @@ func TestMessagePiece_Encode(t *testing.T) {
 		msg.Block...)
 	if !bytes.Equal(msgBytes, expectedBytes) {
 		t.Fatal("incorrect bytes, got", msgBytes)
+	}
+}
+
+func TestMessageExtended_Encoode(t *testing.T) {
+	// Arrange
+	msg := ExtendedMessage{
+		ExtendedMessageID: ExtendedMessageIDHandshake,
+		ExtensionHeader: ExtensionHeader{
+			SupportedExtensionMessages: map[string]int{
+				"ut_metadata": 3,
+			},
+			MetadataSize: 31235,
+		},
+	}
+
+	// Act
+	msgExtended, err := msg.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert
+	buf := new(bytes.Buffer)
+	if err := bencode.Marshal(buf, msg.ExtensionHeader); err != nil {
+		t.Fatal(err)
+	}
+	expectedBytes := append([]byte{
+		0, 0, 0, byte(buf.Len() + 2),
+		uint8(MsgExtended),
+		uint8(ExtendedMessageIDHandshake),
+	},
+		buf.Bytes()...)
+	if !bytes.Equal(msgExtended, expectedBytes) {
+		t.Fatal("incorrect bytes, got", msgExtended)
+	}
+}
+
+func TestExtendedMessage_Decode(t *testing.T) {
+	// taken from wireshark
+	msg, err := Deserialize(bytes.NewReader([]byte{0x0, 0x0, 0x0, 0x63, 0x14, 0x0, 0x64, 0x31, 0x3a, 0x6d, 0x64, 0x31, 0x31, 0x3a, 0x75, 0x74, 0x5f, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x69, 0x31, 0x65, 0x36, 0x3a, 0x75, 0x74, 0x5f, 0x70, 0x65, 0x78, 0x69, 0x32, 0x65, 0x65, 0x31, 0x33, 0x3a, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x5f, 0x73, 0x69, 0x7a, 0x65, 0x69, 0x31, 0x33, 0x32, 0x65, 0x34, 0x3a, 0x72, 0x65, 0x71, 0x71, 0x69, 0x32, 0x35, 0x30, 0x65, 0x31, 0x3a, 0x76, 0x31, 0x30, 0x3a, 0x52, 0x61, 0x69, 0x6e, 0x20, 0x30, 0x2e, 0x30, 0x2e, 0x30, 0x36, 0x3a, 0x79, 0x6f, 0x75, 0x72, 0x69, 0x70, 0x34, 0x3a, 0x9a, 0xcd, 0x10, 0x25, 0x65}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	decodedMsg, err := ExtendedMessage{}.Decode(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if decodedMsg.ExtendedMessageID != ExtendedMessageIDHandshake {
+		t.Fatal("incorrect ExtendedMessageID, got", decodedMsg.ExtendedMessageID)
+	}
+	if !reflect.DeepEqual(decodedMsg, &ExtendedMessage{
+		ExtendedMessageID: ExtendedMessageIDHandshake,
+		ExtensionHeader: ExtensionHeader{
+			SupportedExtensionMessages: map[string]int{
+				"ut_metadata": 1,
+				"ut_pex":      2,
+			},
+			MetadataSize: 132,
+			Reqq:         250,
+			Version:      "Rain 0.0.0",
+			YourIP:       string([]byte{0x9A, 0xCD, 0x10, 0x25}),
+		},
+	}) {
+		t.Fatal(fmt.Sprintf("incorrect message, got %+v", decodedMsg))
 	}
 }

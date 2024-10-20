@@ -3,13 +3,9 @@ package client
 import (
 	"bytes"
 	"context"
-	"errors"
-	"example.com/btclient/pkg/bittorrent/handshake"
 	"example.com/btclient/pkg/bittorrent/peer"
 	"example.com/btclient/pkg/bittorrent/torrentfile"
 	"fmt"
-	"net"
-	"net/netip"
 	"os"
 	"path/filepath"
 	"sync"
@@ -22,55 +18,6 @@ type TcpClient struct {
 }
 
 func (h *TcpClient) Download(ctx context.Context, torrent *torrentfile.SimpleTorrentFile) (resp *Response, err error) {
-	// Parse tracker response
-	trackerResp, err := h.tracker.FetchTorrentMetadata(torrent)
-	if err != nil {
-		return nil, err
-	}
-	if len(trackerResp.Peers) == 0 {
-		return nil, errors.New("no peers found")
-	}
-	println("parsed tracker response")
-
-	// Connect to available peers
-	clientsCh := make(chan *peer.Client, len(trackerResp.Peers))
-	println("attempting connection to", len(trackerResp.Peers), "peers")
-	wg := new(sync.WaitGroup)
-	for _, addrPort := range trackerResp.Peers {
-		wg.Add(1)
-
-		go func(peer2 netip.AddrPort) {
-			defer wg.Done()
-
-			// dial peer
-			conn, err := net.DialTimeout("tcp", addrPort.String(), 30*time.Second)
-			if err != nil {
-				println("error creating client for peer", peer2.String())
-				return
-			}
-			println("dialed", conn.RemoteAddr().String())
-
-			// create client to peer
-			client := peer.NewClient(conn, conn, handshake.NewHandshaker(conn), torrent.PeerID, torrent.InfoHash)
-			if err := client.Init(); err != nil {
-				println("error creating client for peer", peer2.String())
-				return
-			}
-
-			clientsCh <- client
-			fmt.Printf("created client for %s\n", peer2.String())
-		}(addrPort)
-	}
-	wg.Wait()
-	close(clientsCh) // close channel so we don't loop over it infinitely
-
-	// Convert peers channel into peers queue
-	var clients []*peer.Client
-	for client := range clientsCh {
-		clients = append(clients, client)
-	}
-	fmt.Printf("found %d peers\n", len(clients))
-
 	// split pieces into pieces of work
 	downloadTasks := createDownloadTasks(torrent)
 	downloadTasksChan := make(chan pieceRequest, len(downloadTasks))
@@ -90,7 +37,7 @@ func (h *TcpClient) Download(ctx context.Context, torrent *torrentfile.SimpleTor
 		cancel()
 	}()
 
-	for _, btclient := range clients {
+	for _, btclient := range h.connectionPool.GetClients() {
 		go func(ctx context.Context, btclient *peer.Client) {
 			for {
 				select {
