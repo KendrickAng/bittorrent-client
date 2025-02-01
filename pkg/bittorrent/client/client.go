@@ -12,10 +12,9 @@ import (
 //
 // A Client is higher-level than [DataTransfer] and handles details like torrent file reading and validation.
 type Client struct {
-	torrent        *torrentfile.SimpleTorrentFile
-	tracker        tracker.Tracker
-	dataTransfer   DataTransfer
-	connectionPool *peer.Pool
+	torrent      *torrentfile.SimpleTorrentFile
+	tracker      tracker.Tracker
+	dataTransfer DataTransfer
 }
 
 // DataTransfer is an interface that represents the ability to download a torrent with a particular schema.
@@ -34,7 +33,9 @@ func NewClient(torrent torrentfile.SimpleTorrentFile, connPool *peer.Pool) (*Cli
 		return nil, errors.New("torrent length should be greater than zero")
 	}
 
-	return &Client{torrent: &torrent, connectionPool: connPool}, nil
+	tcpClient := NewTcpClient(connPool)
+
+	return &Client{torrent: &torrent, dataTransfer: tcpClient}, nil
 }
 
 func (h *Client) Handle(ctx context.Context) (*Response, error) {

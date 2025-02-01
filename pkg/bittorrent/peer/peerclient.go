@@ -1,29 +1,34 @@
 package peer
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"example.com/btclient/pkg/bittorrent"
 	"example.com/btclient/pkg/bittorrent/handshake"
 	"example.com/btclient/pkg/bittorrent/message"
+	"example.com/btclient/pkg/bittorrent/torrentfile"
 	"example.com/btclient/pkg/preconditions"
 	"fmt"
 	"io"
+	"math"
 	"net"
 )
 
 // Client stores the state of a single client connection to a single peer.
 type Client struct {
-	readConn     net.Conn
-	writeConn    net.Conn
-	handshaker   *handshake.Handshaker
-	extensions   bittorrent.ExtensionBits
-	peerID       [20]byte
-	infoHash     [20]byte
-	handshake    *handshake.Handshake
-	Bitfield     bittorrent.Bitfield
-	isChoked     bool
-	isInterested bool
+	readConn        net.Conn
+	writeConn       net.Conn
+	handshaker      *handshake.Handshaker
+	extensions      bittorrent.ExtensionBits
+	extensionHeader message.ExtensionHeader
+	peerID          [20]byte
+	infoHash        [20]byte
+	InfoDict        *torrentfile.Info
+	handshake       *handshake.Handshake
+	Bitfield        bittorrent.Bitfield
+	isChoked        bool
+	isInterested    bool
 }
 
 func NewClient(readConn net.Conn, writeConn net.Conn,
@@ -58,23 +63,64 @@ func (c *Client) Init() error {
 	if err != nil {
 		return err
 	}
-	println("Bitfield received", c.String(), bf)
+	println("bitfield", c.String(), bf)
 
 	bitfield := bf.Bitfield
 	if err := bitfield.Validate(); err != nil {
 		return err
 	}
 
-	if c.extensions.HasExtensionProtocolBit() && !hs.Extensions.HasExtensionProtocolBit() {
-		return errors.New("extension protocol selected, but peer client does not support extension protocol")
-	}
+	if c.extensions.HasExtensionProtocolBit() {
+		if !hs.Extensions.HasExtensionProtocolBit() {
+			// Client doesn't support extension protocol
+			println("extension protocol selected, but peer client does not support extension protocol")
+		} else {
+			// exchange supported extensions with peer
+			extMsg, err := c.doExtensionHandshake(hs.Extensions)
+			if err != nil {
+				return err
+			}
+			c.extensionHeader = extMsg.ExtensionHeader
 
-	if hs.Extensions.HasExtensionProtocolBit() {
-		extMsg, err := c.doExtensionHandshake(hs.Extensions)
-		if err != nil {
-			return err
+			// download info dictionary from peer
+			numMetadataPieces := int(math.Ceil(float64(extMsg.ExtensionHeader.MetadataSize) / message.UTMetadataBlockSize))
+			for i := 0; i < numMetadataPieces; i++ {
+				reqMsg := message.NewUTMetadataRequestMsg(i, extMsg.ExtensionHeader)
+				reqMsgBytes, err := reqMsg.EncodeUTMetadata()
+				if err != nil {
+					return err
+				}
+				_, err = c.writeConn.Write(reqMsgBytes)
+				if err != nil {
+					return err
+				}
+
+				extDataMsg, err := message.Deserialize(c.readConn)
+				if err != nil {
+					return err
+				}
+				dataMsg, err := message.ExtendedMessage{}.DecodeUTMetadata(extDataMsg)
+				if err != nil {
+					return err
+				}
+
+				switch dataMsg.UTMetadata.MsgType {
+				case message.UTMetadataData:
+					// Read the info dict from the data message
+					infoDictBytes := extDataMsg.Payload[len(extDataMsg.Payload)-dataMsg.UTMetadata.TotalSize:]
+					r := bytes.NewReader(infoDictBytes)
+					infoDict, err := torrentfile.ReadInfoDict(r)
+					if err != nil {
+						return err
+					}
+					c.InfoDict = &infoDict
+				case message.UTMetadataReject:
+					println("received UTMetadataReject, aborting")
+				default:
+					return fmt.Errorf("unexpected message type: %v", dataMsg.UTMetadata.MsgType)
+				}
+			}
 		}
-		println("got ext msg", extMsg)
 	}
 
 	c.handshake = hs

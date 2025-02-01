@@ -87,7 +87,7 @@ func TestMessagePiece_Encode(t *testing.T) {
 func TestMessageExtended_Encoode(t *testing.T) {
 	// Arrange
 	msg := ExtendedMessage{
-		ExtendedMessageID: ExtendedMessageIDHandshake,
+		ExtendedMessageID: EMessageIDHandshake,
 		ExtensionHeader: ExtensionHeader{
 			SupportedExtensionMessages: map[string]int{
 				"ut_metadata": 3,
@@ -97,7 +97,7 @@ func TestMessageExtended_Encoode(t *testing.T) {
 	}
 
 	// Act
-	msgExtended, err := msg.Encode()
+	msgExtended, err := msg.EncodeHandshake()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestMessageExtended_Encoode(t *testing.T) {
 	expectedBytes := append([]byte{
 		0, 0, 0, byte(buf.Len() + 2),
 		uint8(MsgExtended),
-		uint8(ExtendedMessageIDHandshake),
+		uint8(EMessageIDHandshake),
 	},
 		buf.Bytes()...)
 	if !bytes.Equal(msgExtended, expectedBytes) {
@@ -125,16 +125,16 @@ func TestExtendedMessage_Decode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	decodedMsg, err := ExtendedMessage{}.Decode(msg)
+	decodedMsg, err := ExtendedMessage{}.DecodeHandshake(msg)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if decodedMsg.ExtendedMessageID != ExtendedMessageIDHandshake {
+	if decodedMsg.ExtendedMessageID != EMessageIDHandshake {
 		t.Fatal("incorrect ExtendedMessageID, got", decodedMsg.ExtendedMessageID)
 	}
 	if !reflect.DeepEqual(decodedMsg, &ExtendedMessage{
-		ExtendedMessageID: ExtendedMessageIDHandshake,
+		ExtendedMessageID: EMessageIDHandshake,
 		ExtensionHeader: ExtensionHeader{
 			SupportedExtensionMessages: map[string]int{
 				"ut_metadata": 1,

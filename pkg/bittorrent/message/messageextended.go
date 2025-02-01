@@ -2,18 +2,23 @@ package message
 
 import (
 	"bytes"
+	"example.com/btclient/pkg/preconditions"
+	"fmt"
 	"github.com/jackpal/bencode-go"
 )
 
 const (
-	ExtendedMessageIDHandshake uint8 = 0
-	ExtendedMessageIDMagnet    uint8 = 20 // arbitrary
+	EMessageIDHandshake uint8 = 0
+	EMessageIDMagnet    uint8 = 20 // arbitrary
+
+	ENameUTMetadata string = "ut_metadata"
 )
 
 // See: https://www.bittorrent.org/beps/bep_0010.html.
 type ExtendedMessage struct {
 	ExtendedMessageID uint8
 	ExtensionHeader   ExtensionHeader
+	UTMetadata        UTMetadata
 }
 
 type ExtensionHeader struct {
@@ -47,7 +52,24 @@ type ExtensionHeader struct {
 	MetadataSize int `bencode:"metadata_size,omitempty"`
 }
 
-func (m ExtendedMessage) Encode() ([]byte, error) {
+func (e ExtensionHeader) ExtensionMessageID(extensionName string) uint8 {
+	val, ok := e.SupportedExtensionMessages[extensionName]
+	preconditions.CheckArgument(ok, fmt.Sprintf("extension header does not have %s", extensionName))
+	return uint8(val)
+}
+
+func NewExtensionHandshakeMsg() ExtendedMessage {
+	return ExtendedMessage{
+		ExtendedMessageID: EMessageIDHandshake,
+		ExtensionHeader: ExtensionHeader{
+			SupportedExtensionMessages: map[string]int{
+				ENameUTMetadata: int(EMessageIDMagnet),
+			},
+		},
+	}
+}
+
+func (m ExtendedMessage) EncodeHandshake() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	if err := bencode.Marshal(buf, m.ExtensionHeader); err != nil {
 		return nil, err
@@ -58,12 +80,11 @@ func (m ExtendedMessage) Encode() ([]byte, error) {
 	return createMessageWithPayload(MsgExtended, payload), nil
 }
 
-func (m ExtendedMessage) Decode(msg *Message) (*ExtendedMessage, error) {
-	if msg.ID != MsgExtended {
-		panic("invalid message extended")
-	}
+func (m ExtendedMessage) DecodeHandshake(msg *Message) (*ExtendedMessage, error) {
+	preconditions.CheckArgument(msg.ID == MsgExtended, "invalid message extended")
 
 	extendedMessageID := msg.Payload[0]
+	preconditions.CheckArgument(extendedMessageID == EMessageIDHandshake, "invalid ExtendedMessageID")
 	extensionHeaders := msg.Payload[1:]
 
 	var e ExtensionHeader

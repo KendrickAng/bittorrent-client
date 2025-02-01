@@ -105,6 +105,14 @@ func ReadTorrentFile(r io.Reader) (TorrentFile, error) {
 	return data, nil
 }
 
+func ReadInfoDict(r io.Reader) (Info, error) {
+	var info Info
+	if err := bencode.Unmarshal(r, &info); err != nil {
+		return Info{}, errors.Join(err, fmt.Errorf("bencodeutil failed to unmarshal %+v", r))
+	}
+	return info, nil
+}
+
 // Simplify flattens [TorrentFile] and returns a [SimpleTorrentFile].
 func (t *TorrentFile) Simplify() (SimpleTorrentFile, error) {
 	// SHA-1 hash of info dict

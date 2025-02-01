@@ -11,7 +11,7 @@ import (
 type Message struct {
 	ID      Type
 	Payload []byte
-	// Total requestLength of the message in bytes.
+	// Total length of the message in bytes.
 	Length uint32
 }
 

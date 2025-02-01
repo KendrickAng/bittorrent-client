@@ -165,44 +165,46 @@ func runWithMagnet(ctx context.Context, magnetFileName string) (err error) {
 		return errors.New("could not retrieve tracker information")
 	}
 
-	// TODO Perform a handshake with a peer. Create connection pool
-	// Create extension bits.
+	// Connect to clients.
 	extensionBits := bittorrent.NewExtensionBits(bittorrent.ExtensionProtocolBit)
 	clients, err := connectToClients(trackerResp.Peers, extensionBits, peerID, infoHash)
 	if err != nil {
 		return err
 	}
-	_ = peer.NewPool(clients)
 
-	// Connect to available peers
-	//clientsCh := make(chan *peer.Client, len(torrent.Peers))
-	println("attempting connection to", len(trackerResp.Peers), "peers")
+	// Retrieve info dict from any peer
+	var infoDict *torrentfile.Info
+	for _, peerClient := range clients {
+		if peerClient.InfoDict != nil {
+			infoDict = peerClient.InfoDict
+			break
+		}
+	}
 
-	// Download from peers over TCP.
-	//fileName := mag.DisplayName()
-	//if fileName == "" {
-	//	fileName = "bittorrent_client.torrentdownload"
-	//}
-	//
-	//handler, err := client.NewClient(torrentfile.SimpleTorrentFile{
-	//	Announce:    nil, // TODO
-	//	InfoHash:    [20]byte(infoHash),
-	//	PieceHashes: nil, // TODO
-	//	PieceLength: 0,   // TODO
-	//	Length:      0,   // TODO
-	//	Name:        fileName,
-	//	PeerID:      peerID,
-	//	Peers:       trackerResp.Peers,
-	//}, client.Config{
-	//	ShouldSupportExtensionProtocol: true,
-	//})
-	//if err != nil {
-	//	return err
-	//}
-	//if _, err := handler.Handle(ctx); err != nil {
-	//	return err
-	//}
-	//defer handler.Close()
+	if infoDict == nil {
+		return errors.New("could not retrieve info dictionary")
+	}
+
+	// Convert info dict into a torrent file representation
+	torrentFile := torrentfile.TorrentFile{
+		PeerId: peerID,
+		Info:   *infoDict,
+	}
+	simpleTorrentFile, err := torrentFile.Simplify()
+	if err != nil {
+		return err
+	}
+
+	// Handle (blocking)
+	connectionPool := peer.NewPool(clients)
+	handler, err := client.NewClient(simpleTorrentFile, connectionPool)
+	if err != nil {
+		return err
+	}
+	if _, err := handler.Handle(ctx); err != nil {
+		return err
+	}
+	defer handler.Close()
 
 	return nil
 }

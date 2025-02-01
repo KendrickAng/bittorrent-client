@@ -14,7 +14,11 @@ import (
 
 // TcpClient represents a torrent downloader that uses TCP for data download from peers.
 type TcpClient struct {
-	Client
+	connectionPool *peer.Pool
+}
+
+func NewTcpClient(connectionPool *peer.Pool) *TcpClient {
+	return &TcpClient{connectionPool: connectionPool}
 }
 
 func (h *TcpClient) Download(ctx context.Context, torrent *torrentfile.SimpleTorrentFile) (resp *Response, err error) {
@@ -56,7 +60,6 @@ func (h *TcpClient) Download(ctx context.Context, torrent *torrentfile.SimpleTor
 					if err != nil {
 						downloadTasksChan <- downloadTask
 					} else if !bytes.Equal(torrent.PieceHashes[result.index][:], result.hash[:]) {
-						// TODO: fix the bug where the last piece has an invalid hash.
 						println("invalid piece hash for piece", result.index)
 						downloadTasksChan <- downloadTask
 					} else {

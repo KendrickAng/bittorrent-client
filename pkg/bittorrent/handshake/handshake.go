@@ -79,16 +79,9 @@ func (h *Handshaker) ReceiveHandshake() (*Handshake, error) {
 }
 
 func (h *Handshaker) SendExtensionHandshake() error {
-	msg := message.ExtendedMessage{
-		ExtendedMessageID: message.ExtendedMessageIDHandshake,
-		ExtensionHeader: message.ExtensionHeader{
-			SupportedExtensionMessages: map[string]int{
-				"ut_metadata": int(message.ExtendedMessageIDMagnet),
-			},
-		},
-	}
+	msg := message.NewExtensionHandshakeMsg()
 
-	b, err := msg.Encode()
+	b, err := msg.EncodeHandshake()
 	if err != nil {
 		return err
 	}
@@ -105,7 +98,7 @@ func (h *Handshaker) ReceiveExtensionHandshake() (*message.ExtendedMessage, erro
 		return nil, fmt.Errorf("expected MsgExtended, got %s", msg.ID)
 	}
 
-	return message.ExtendedMessage{}.Decode(msg)
+	return message.ExtendedMessage{}.DecodeHandshake(msg)
 }
 
 func buildHandshake(protocolID string,
