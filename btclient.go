@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"example.com/btclient/internal/bittorrent"
@@ -9,10 +10,8 @@ import (
 	"example.com/btclient/internal/bittorrent/peer"
 	"example.com/btclient/internal/bittorrent/torrentfile"
 	"example.com/btclient/internal/bittorrent/tracker"
-	"example.com/btclient/internal/preconditions"
 	"example.com/btclient/internal/stringutil"
 	"fmt"
-	"io"
 	"net"
 	"net/netip"
 	"os"
@@ -35,39 +34,29 @@ func run(ctx context.Context) (err error) {
 	}()
 
 	// Parse flags
-	flags, err := parseFlags()
+	flags, err := getFlags()
 	if err != nil {
 		return err
 	}
 
-	preconditions.CheckArgument(preconditions.Xor(flags.TorrentFileName != "", flags.MagnetFileName != ""),
-		"only either torrent file or magnet link must be specified")
-
-	if flags.TorrentFileName != "" {
-		return runWithTorrentFile(ctx, flags.TorrentFileName)
+	// Read input file
+	input, err := readData(flags.FileName)
+	if err != nil {
+		return err
 	}
 
-	if flags.MagnetFileName != "" {
-		return runWithMagnet(ctx, flags.MagnetFileName)
+	if flags.IsInputTorrentFile() {
+		return runWithTorrentFile(ctx, input)
+	} else if flags.IsInputMagnetLink() {
+		return runWithMagnet(ctx, input)
+	} else {
+		panic("no valid input type")
 	}
-
-	return nil
 }
 
-func runWithTorrentFile(ctx context.Context, torrentFileName string) (err error) {
-	// Read .torrent file
-	file, err := os.Open(torrentFileName)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if e := file.Close(); e != nil && err == nil {
-			err = e
-		}
-	}()
-
+func runWithTorrentFile(ctx context.Context, input []byte) (err error) {
 	// Decode bencoded file
-	bencodedData, err := torrentfile.ReadTorrentFile(file)
+	bencodedData, err := torrentfile.ReadTorrentFile(bytes.NewReader(input))
 	if err != nil {
 		return err
 	}
@@ -112,25 +101,9 @@ func runWithTorrentFile(ctx context.Context, torrentFileName string) (err error)
 	return nil
 }
 
-func runWithMagnet(ctx context.Context, magnetFileName string) (err error) {
-	file, err := os.Open(magnetFileName)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if e := file.Close(); e != nil && err == nil {
-			err = e
-		}
-	}()
-
-	// Read magnet link from the file.
-	b, err := io.ReadAll(file)
-	if err != nil {
-		return err
-	}
-
+func runWithMagnet(ctx context.Context, input []byte) (err error) {
 	// Parse magnet link.
-	mag, err := bittorrent.ParseMagnet(string(b))
+	mag, err := bittorrent.ParseMagnet(string(input))
 	if err != nil {
 		return err
 	}

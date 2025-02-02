@@ -1,41 +1,59 @@
 package main
 
 import (
-	"errors"
 	"flag"
+	"fmt"
+	"slices"
 	"strings"
+	"sync"
+)
+
+const (
+	typeMagnet  string = "magnet"
+	typeTorrent string = "torrent"
 )
 
 var (
-	flagTorrent = flag.String("torrent", "",
-		"The absolute path to the .torrent file of the torrent to download, e.g. 'mymovie.torrent'.")
-	flagMagnet = flag.String("magnet", "",
-		"The absolute path to the file containing the magnet link to download.")
+	parseFlags = sync.OnceFunc(flag.Parse)
+
+	acceptedTypes = []string{typeMagnet, typeTorrent}
+
+	flagType = flag.String("type", typeTorrent,
+		fmt.Sprintf("Whether to parse the input as a torrent file or a magnet link. Accepted values: %s", strings.Join(acceptedTypes, ",")))
 )
 
 type Flags struct {
-	TorrentFileName string
-	MagnetFileName  string
+	FileName string
+	Type     string
 }
 
-func parseFlags() (Flags, error) {
+func (f Flags) IsInputMagnetLink() bool {
+	return f.Type == typeMagnet
+}
+
+func (f Flags) IsInputTorrentFile() bool {
+	return f.Type == typeTorrent
+}
+
+func getFlags() (Flags, error) {
+	parseFlags()
+
 	// Retrieve flags
 	flags := Flags{
-		TorrentFileName: strings.TrimSpace(*flagTorrent),
-		MagnetFileName:  strings.TrimSpace(*flagMagnet),
+		FileName: flag.Arg(0),
+		Type:     strings.TrimSpace(*flagType),
 	}
 
-	if flags.MagnetFileName == "" && flags.TorrentFileName == "" {
-		return Flags{}, errors.New("--torrent or --magnet is required")
-	}
-
-	if flags.TorrentFileName != "" && flags.MagnetFileName != "" {
-		return Flags{}, errors.New("only one of --torrent and --magnet is accepted")
+	if err := validate(flags); err != nil {
+		return Flags{}, err
 	}
 
 	return flags, nil
 }
 
-func init() {
-	flag.Parse()
+func validate(f Flags) error {
+	if !slices.Contains(acceptedTypes, f.Type) {
+		return fmt.Errorf("invalid input %s, only %v is supported", f.Type, acceptedTypes)
+	}
+	return nil
 }
