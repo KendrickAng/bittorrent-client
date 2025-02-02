@@ -14,8 +14,9 @@ func TestClient_IsChoked(t *testing.T) {
 	// Arrange
 	var a1 [20]byte
 	var a2 [20]byte
+	var e [8]byte
 	reader, writer := net.Pipe()
-	client := NewClient(reader, writer, handshake.NewHandshaker(writer), a1, a2)
+	client := NewClient(reader, writer, handshake.NewHandshaker(writer), e, a1, a2)
 	defer client.Close()
 
 	// Assert
@@ -28,10 +29,11 @@ func TestClient_ReceiveUnchokeMessage(t *testing.T) {
 	// Arrange
 	var a1 [20]byte
 	var a2 [20]byte
+	var e [8]byte
 	reader, writer := net.Pipe()
-	writer.SetWriteDeadline(time.Now().Add(time.Minute * 3))
-	reader.SetReadDeadline(time.Now().Add(time.Minute * 3))
-	client := NewClient(reader, writer, handshake.NewHandshaker(writer), a1, a2)
+	_ = writer.SetWriteDeadline(time.Now().Add(time.Minute * 3))
+	_ = reader.SetReadDeadline(time.Now().Add(time.Minute * 3))
+	client := NewClient(reader, writer, handshake.NewHandshaker(writer), e, a1, a2)
 	defer client.Close()
 
 	go func() {
@@ -50,7 +52,7 @@ func TestClient_ReceiveUnchokeMessage(t *testing.T) {
 	}
 
 	// Assert
-	if actualMsgUnchoke.Encode()[0] != 5 {
+	if len(actualMsgUnchoke.Encode()) != 5 {
 		t.Fatal("unchoke message not equal")
 	}
 	if actualMsgUnchoke.Encode()[4] != uint8(message.MsgUnchoke) {
@@ -66,8 +68,9 @@ func TestClient_SendInterestedMessage(t *testing.T) {
 	// Arrange
 	var a1 [20]byte
 	var a2 [20]byte
+	var e [8]byte
 	reader, writer := net.Pipe()
-	client := NewClient(reader, writer, handshake.NewHandshaker(writer), a1, a2)
+	client := NewClient(reader, writer, handshake.NewHandshaker(writer), e, a1, a2)
 	defer client.Close()
 
 	// Act
@@ -92,8 +95,9 @@ func TestClient_SendRequestMessage(t *testing.T) {
 	// Arrange
 	var a1 [20]byte
 	var a2 [20]byte
+	var e [8]byte
 	reader, writer := net.Pipe()
-	client := NewClient(reader, writer, handshake.NewHandshaker(writer), a1, a2)
+	client := NewClient(reader, writer, handshake.NewHandshaker(writer), e, a1, a2)
 	defer client.Close()
 
 	// Act
@@ -123,8 +127,9 @@ func TestClient_ReceivePieceMessage(t *testing.T) {
 	// Arrange
 	var a1 [20]byte
 	var a2 [20]byte
+	var e [8]byte
 	reader, writer := net.Pipe()
-	client := NewClient(reader, writer, handshake.NewHandshaker(writer), a1, a2)
+	client := NewClient(reader, writer, handshake.NewHandshaker(writer), e, a1, a2)
 	defer client.Close()
 
 	go func() {
