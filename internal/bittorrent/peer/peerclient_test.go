@@ -2,8 +2,8 @@ package peer
 
 import (
 	"bytes"
-	"example.com/btclient/pkg/bittorrent/handshake"
-	"example.com/btclient/pkg/bittorrent/message"
+	"example.com/btclient/internal/bittorrent/handshake"
+	"example.com/btclient/internal/bittorrent/message"
 	"io"
 	"net"
 	"testing"

@@ -2,7 +2,7 @@ package stringutil
 
 import (
 	"crypto/rand"
-	"example.com/btclient/pkg/preconditions"
+	"example.com/btclient/internal/preconditions"
 	"fmt"
 )
 

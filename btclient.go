@@ -1,16 +1,16 @@
-package btclient
+package main
 
 import (
 	"context"
 	"errors"
-	"example.com/btclient/pkg/bittorrent"
-	"example.com/btclient/pkg/bittorrent/client"
-	"example.com/btclient/pkg/bittorrent/handshake"
-	"example.com/btclient/pkg/bittorrent/peer"
-	"example.com/btclient/pkg/bittorrent/torrentfile"
-	"example.com/btclient/pkg/bittorrent/tracker"
-	"example.com/btclient/pkg/preconditions"
-	"example.com/btclient/pkg/stringutil"
+	"example.com/btclient/internal/bittorrent"
+	"example.com/btclient/internal/bittorrent/client"
+	"example.com/btclient/internal/bittorrent/handshake"
+	"example.com/btclient/internal/bittorrent/peer"
+	"example.com/btclient/internal/bittorrent/torrentfile"
+	"example.com/btclient/internal/bittorrent/tracker"
+	"example.com/btclient/internal/preconditions"
+	"example.com/btclient/internal/stringutil"
 	"fmt"
 	"io"
 	"net"
@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-func Run(ctx context.Context) (err error) {
+func run(ctx context.Context) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -35,7 +35,7 @@ func Run(ctx context.Context) (err error) {
 	}()
 
 	// Parse flags
-	flags, err := GetFlags()
+	flags, err := parseFlags()
 	if err != nil {
 		return err
 	}

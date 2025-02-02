@@ -2,7 +2,7 @@ package handshake
 
 import (
 	"bytes"
-	"example.com/btclient/pkg/stringutil"
+	"example.com/btclient/internal/stringutil"
 	"io"
 	"net"
 	"testing"

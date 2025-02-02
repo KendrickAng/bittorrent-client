@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 	"errors"
-	"example.com/btclient/pkg/bittorrent"
-	"example.com/btclient/pkg/bittorrent/message"
-	"example.com/btclient/pkg/bittorrent/peer"
+	"example.com/btclient/internal/bittorrent"
+	"example.com/btclient/internal/bittorrent/message"
+	"example.com/btclient/internal/bittorrent/peer"
 	"math"
 )
 
@@ -29,7 +29,7 @@ type pieceResult struct {
 	hash  [20]byte
 }
 
-// downloadWorker handles the download of a single piece of data in the torrent.
+// downloadWorker handles the download of a single piece of datareader in the torrent.
 // A torrent is split into many pieces for download.
 type downloadWorker struct {
 	client *peer.Client

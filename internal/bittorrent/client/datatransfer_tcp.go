@@ -3,8 +3,8 @@ package client
 import (
 	"bytes"
 	"context"
-	"example.com/btclient/pkg/bittorrent/peer"
-	"example.com/btclient/pkg/bittorrent/torrentfile"
+	"example.com/btclient/internal/bittorrent/peer"
+	"example.com/btclient/internal/bittorrent/torrentfile"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// TcpClient represents a torrent downloader that uses TCP for data download from peers.
+// TcpClient represents a torrent downloader that uses TCP for datareader download from peers.
 type TcpClient struct {
 	connectionPool *peer.Pool
 }

@@ -1,6 +1,6 @@
 package message
 
-import "example.com/btclient/pkg/bittorrent"
+import "example.com/btclient/internal/bittorrent"
 
 type BitfieldMessage struct {
 	Bitfield bittorrent.Bitfield

@@ -3,12 +3,12 @@ package client
 import (
 	"context"
 	"errors"
-	"example.com/btclient/pkg/bittorrent/peer"
-	"example.com/btclient/pkg/bittorrent/torrentfile"
-	"example.com/btclient/pkg/bittorrent/tracker"
+	"example.com/btclient/internal/bittorrent/peer"
+	"example.com/btclient/internal/bittorrent/torrentfile"
+	"example.com/btclient/internal/bittorrent/tracker"
 )
 
-// Client represents a BitTorrent client that downloads a piece of data specified by a Metainfo (.torrent) file.
+// Client represents a BitTorrent client that downloads a piece of datareader specified by a Metainfo (.torrent) file.
 //
 // A Client is higher-level than [DataTransfer] and handles details like torrent file reading and validation.
 type Client struct {

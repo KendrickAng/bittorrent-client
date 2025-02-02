@@ -3,8 +3,8 @@ package torrentfile
 import (
 	"bytes"
 	"errors"
-	"example.com/btclient/pkg/bittorrent"
-	"example.com/btclient/pkg/stringutil"
+	"example.com/btclient/internal/bittorrent"
+	"example.com/btclient/internal/stringutil"
 	"fmt"
 	"github.com/jackpal/bencode-go"
 	"io"
@@ -39,7 +39,7 @@ type TorrentFile struct {
 	PeerId [20]byte
 }
 
-// Info represents the info dictionary containing information about the torrent data.
+// Info represents the info dictionary containing information about the torrent datareader.
 type Info struct {
 	// CONFIGURATIONS FOR BOTH SINGLE/MULTI FILE MODE.
 

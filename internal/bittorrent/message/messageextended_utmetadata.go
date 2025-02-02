@@ -2,7 +2,7 @@ package message
 
 import (
 	"bytes"
-	"example.com/btclient/pkg/preconditions"
+	"example.com/btclient/internal/preconditions"
 	"github.com/jackpal/bencode-go"
 )
 

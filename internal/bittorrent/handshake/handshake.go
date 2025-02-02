@@ -1,8 +1,8 @@
 package handshake
 
 import (
-	"example.com/btclient/pkg/bittorrent"
-	"example.com/btclient/pkg/bittorrent/message"
+	"example.com/btclient/internal/bittorrent"
+	"example.com/btclient/internal/bittorrent/message"
 	"fmt"
 	"io"
 	"net"

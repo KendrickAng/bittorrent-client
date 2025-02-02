@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"example.com/btclient/pkg/bittorrent"
-	"example.com/btclient/pkg/bittorrent/handshake"
-	"example.com/btclient/pkg/bittorrent/message"
-	"example.com/btclient/pkg/bittorrent/torrentfile"
-	"example.com/btclient/pkg/preconditions"
+	"example.com/btclient/internal/bittorrent"
+	"example.com/btclient/internal/bittorrent/handshake"
+	"example.com/btclient/internal/bittorrent/message"
+	"example.com/btclient/internal/bittorrent/torrentfile"
+	"example.com/btclient/internal/preconditions"
 	"fmt"
 	"io"
 	"math"
@@ -106,7 +106,7 @@ func (c *Client) Init() error {
 
 				switch dataMsg.UTMetadata.MsgType {
 				case message.UTMetadataData:
-					// Read the info dict from the data message
+					// Read the info dict from the datareader message
 					infoDictBytes := extDataMsg.Payload[len(extDataMsg.Payload)-dataMsg.UTMetadata.TotalSize:]
 					r := bytes.NewReader(infoDictBytes)
 					infoDict, err := torrentfile.ReadInfoDict(r)
@@ -158,7 +158,7 @@ func (c *Client) SendInterestedMessage() error {
 	return err
 }
 
-// SendRequestMessage sends a request to peer to download a section of a piece of data.
+// SendRequestMessage sends a request to peer to download a section of a piece of datareader.
 // pieceIndex: integer specifying the zero-based piece pieceIndex
 // begin: integer specifying the zero-based byte offset within the piece
 // requestLength: integer specifying the requested requestLength.

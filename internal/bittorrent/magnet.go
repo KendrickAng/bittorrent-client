@@ -4,7 +4,7 @@ import (
 	"encoding/base32"
 	"encoding/hex"
 	"errors"
-	"example.com/btclient/pkg/preconditions"
+	"example.com/btclient/internal/preconditions"
 	"fmt"
 	"net/url"
 	"strconv"

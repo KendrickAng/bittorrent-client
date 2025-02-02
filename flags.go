@@ -1,4 +1,4 @@
-package btclient
+package main
 
 import (
 	"errors"
@@ -18,7 +18,7 @@ type Flags struct {
 	MagnetFileName  string
 }
 
-func GetFlags() (Flags, error) {
+func parseFlags() (Flags, error) {
 	// Retrieve flags
 	flags := Flags{
 		TorrentFileName: strings.TrimSpace(*flagTorrent),
