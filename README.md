@@ -6,8 +6,6 @@ support)
 and [BEP 9: Extension for Peers to Send Metadata Files](https://www.bittorrent.org/beps/bep_0009.html) (magnet link
 support).
 
-<script async id="asciicast-569727" src="https://asciinema.org/a/569727.js"></script>
-
 ## Quickstart
 
 Run with a magnet link:
