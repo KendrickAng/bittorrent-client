@@ -8,7 +8,7 @@ support).
 
 [![asciicast](https://asciinema.org/a/u7JXu5EJPGialBWua7jyKXajN.svg)](https://asciinema.org/a/u7JXu5EJPGialBWua7jyKXajN)
 
->Interested in how this works under the hood? Check out the [wiki](https://kendrickang.github.io/bittorrent-client-with-magnet/)!
+>💡 Interested in how this works under the hood? Check out the [wiki](https://kendrickang.github.io/bittorrent-client-with-magnet/)!
 
 ## Quickstart
 
