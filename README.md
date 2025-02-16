@@ -8,24 +8,28 @@ support).
 
 [![asciicast](https://asciinema.org/a/u7JXu5EJPGialBWua7jyKXajN.svg)](https://asciinema.org/a/u7JXu5EJPGialBWua7jyKXajN)
 
+>Interested in how this works under the hood? Check out the [wiki](https://kendrickang.github.io/bittorrent-client-with-magnet/)!
+
 ## Quickstart
 
-Run with a magnet link:
+First build the `btclient` binary:
 
 ```shell
-go build && ./btclient -type=magnet sample.magnet
+go build
 ```
 
-Run with a torrent file:
+Next, either download a torrent starting from a magnet link:
 
 ```shell
-go build && ./btclient -type=torrent sample.torrent
+./btclient -type=magnet sample.magnet
+```
+
+Or download a torrent starting from a `.torrent` file:
+
+```shell
+./btclient -type=torrent sample.torrent
 ```
 
 ## Credits
 
 [CodeCrafters](https://app.codecrafters.io/courses/bittorrent/overview) for their sample `.torrent` and `.magnet` files.
-
-## Future Work
-
-- Write a script for cross-platform compilation and running
